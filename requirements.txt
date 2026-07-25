@@ -1,0 +1,2 @@
+# loopLamp dependencies
+# Add your Python dependencies here
