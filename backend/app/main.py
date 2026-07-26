@@ -1,11 +1,7 @@
-"""
-Main application entry point for loopLamp backend.
-"""
+from fastapi import FastAPI
 
-def main():
-    """Start the loopLamp application."""
-    print("loopLamp backend starting...")
+app = FastAPI()
 
-
-if __name__ == "__main__":
-    main()
+@app.get("/")
+def root():
+    return {"message": "Agentic System Backend Ready"}
