@@ -52,5 +52,32 @@
     "file_type": ".txt",
     "origin": "upload",
     "uploaded_at": "2026-07-28T12:25:17.504736+00:00"
+  },
+  "upload:20260728131148_upload_note.txt": {
+    "source_id": "upload:20260728131148_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728131148_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:11:48.933343+00:00"
+  },
+  "upload:20260728131950_ecommerce-full-100products.pdf": {
+    "source_id": "upload:20260728131950_ecommerce-full-100products.pdf",
+    "label": "ecommerce-full-100products.pdf",
+    "domain": "telecom_security",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728131950_ecommerce-full-100products.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:19:50.516897+00:00"
+  },
+  "upload:20260728135123_1739770105701.pdf": {
+    "source_id": "upload:20260728135123_1739770105701.pdf",
+    "label": "1739770105701.pdf",
+    "domain": "telecom_security",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728135123_1739770105701.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:51:23.759764+00:00"
   }
 }

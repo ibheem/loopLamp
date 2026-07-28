@@ -235,6 +235,94 @@ Use `GET /sources` first and pick the sample `medical_qa` `source_id` shown by y
 
 If your local medical sample filename is different, keep the same structure and replace only the `source_id`.
 
+### Banking
+
+```json
+{
+  "query": "What should be done for a failed ATM debit complaint?",
+  "source_id": "sample:banking_assistant:atm_notice.txt",
+  "domain": "banking_assistant",
+  "max_results": 2
+}
+```
+
+You can also test banking service policy retrieval with:
+
+```json
+{
+  "query": "What service charge guidance is mentioned?",
+  "source_id": "sample:banking_assistant:service_charges.md",
+  "domain": "banking_assistant",
+  "max_results": 2
+}
+```
+
+### Automotive
+
+```json
+{
+  "query": "What does the fault-code guidance recommend for brake inspection?",
+  "source_id": "sample:automotive:service_manual.txt",
+  "domain": "automotive",
+  "max_results": 2
+}
+```
+
+You can also test DTC-oriented retrieval with:
+
+```json
+{
+  "query": "What action is associated with DTC P0420?",
+  "source_id": "sample:automotive:dtc_fault_codes.csv",
+  "domain": "automotive",
+  "max_results": 2
+}
+```
+
+### Manufacturing
+
+```json
+{
+  "query": "What should happen after a quality defect is reported?",
+  "source_id": "sample:manufacturing:quality_incident.txt",
+  "domain": "manufacturing",
+  "max_results": 2
+}
+```
+
+You can also test production and SOP retrieval with:
+
+```json
+{
+  "query": "What process guidance applies before restarting the line?",
+  "source_id": "sample:manufacturing:sop_guidelines.md",
+  "domain": "manufacturing",
+  "max_results": 2
+}
+```
+
+### Ecommerce
+
+```json
+{
+  "query": "What should be done for a delayed order with a refund request?",
+  "source_id": "sample:ecommerce:customer_issue.txt",
+  "domain": "ecommerce",
+  "max_results": 2
+}
+```
+
+You can also test returns and catalog retrieval with:
+
+```json
+{
+  "query": "What return policy guidance applies for an opened product?",
+  "source_id": "sample:ecommerce:return_policy.md",
+  "domain": "ecommerce",
+  "max_results": 2
+}
+```
+
 ## How to create your own base64 content quickly
 
 If you want to test another text payload from terminal:

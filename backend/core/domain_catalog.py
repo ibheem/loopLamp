@@ -49,10 +49,10 @@ DOMAIN_CATALOG = {
         "label": "Banking Assistant",
         "pattern": "rag_structured_hybrid",
         "priority": 4,
-        "status": "planned",
+        "status": "implemented",
         "sample_data": [
             "test_data/banking_assistant/transactions.csv",
-            "test_data/banking_assistant/service_charges.pdf",
+            "test_data/banking_assistant/service_charges.md",
             "test_data/banking_assistant/atm_notice.txt",
         ],
         "use_cases": [
@@ -65,11 +65,11 @@ DOMAIN_CATALOG = {
         "label": "Automotive",
         "pattern": "rag_structured_hybrid",
         "priority": 5,
-        "status": "planned",
+        "status": "implemented",
         "sample_data": [
             "test_data/automotive/service_manual.txt",
             "test_data/automotive/dtc_fault_codes.csv",
-            "test_data/automotive/maintenance_bulletin.pdf",
+            "test_data/automotive/maintenance_bulletin.md",
         ],
         "use_cases": [
             "fault code interpretation",
@@ -81,10 +81,10 @@ DOMAIN_CATALOG = {
         "label": "Manufacturing",
         "pattern": "rag_structured_hybrid",
         "priority": 6,
-        "status": "planned",
+        "status": "implemented",
         "sample_data": [
             "test_data/manufacturing/production_log.csv",
-            "test_data/manufacturing/sop_guidelines.pdf",
+            "test_data/manufacturing/sop_guidelines.md",
             "test_data/manufacturing/quality_incident.txt",
         ],
         "use_cases": [
@@ -93,10 +93,26 @@ DOMAIN_CATALOG = {
             "SOP retrieval",
         ],
     },
+    "ecommerce": {
+        "label": "Ecommerce",
+        "pattern": "rag_structured_hybrid",
+        "priority": 7,
+        "status": "implemented",
+        "sample_data": [
+            "test_data/ecommerce/orders.csv",
+            "test_data/ecommerce/return_policy.md",
+            "test_data/ecommerce/customer_issue.txt",
+        ],
+        "use_cases": [
+            "order support",
+            "returns and refund guidance",
+            "catalog and inventory explanation",
+        ],
+    },
     "financial_sentiment": {
         "label": "Financial Sentiment",
         "pattern": "api_analytics_llm",
-        "priority": 7,
+        "priority": 8,
         "status": "planned",
         "sample_data": [
             "test_data/financial_sentiment/news_sample.json",
@@ -111,7 +127,7 @@ DOMAIN_CATALOG = {
     "sebi_regulatory": {
         "label": "SEBI Regulatory",
         "pattern": "rag_documents",
-        "priority": 8,
+        "priority": 9,
         "status": "planned",
         "sample_data": [
             "test_data/sebi_regulatory/sebi_faq.pdf",

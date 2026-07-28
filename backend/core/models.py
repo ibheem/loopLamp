@@ -188,6 +188,166 @@ class DashboardResponse(BaseModel):
                         "issues": ["Fallback mode used; clinical review still required."],
                     },
                 },
+                {
+                    "domain": "banking_assistant",
+                    "title": "Banking Assistant Dashboard Report",
+                    "summary": "The retrieved banking context points to ATM complaint logging, withdrawal limits, and fee communication as the key support actions.",
+                    "status": {"level": "success", "issues": []},
+                    "metrics": [
+                        {"label": "Matched Documents", "value": "2", "unit": "documents"},
+                        {"label": "Matched Sources", "value": "2", "unit": "sources"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "ATM complaint workflow present",
+                            "severity": "medium",
+                            "detail": "The banking guidance requires transaction-reference logging and branch follow-up for failed ATM debits.",
+                        },
+                        {
+                            "title": "Fee policy identified",
+                            "severity": "high",
+                            "detail": "The retrieved material includes service-charge and penalty clauses that should be explained clearly to customers.",
+                        },
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Log failed ATM debit cases with transaction reference and assign branch follow-up within 24 hours."},
+                        {"priority": 2, "action": "Explain applicable service charges or penalties in customer-facing language before resolution."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "banking_assistant",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [],
+                    },
+                },
+                {
+                    "domain": "automotive",
+                    "title": "Automotive Dashboard Report",
+                    "summary": "The retrieved automotive context points to DTC validation, brake inspection, and scheduled maintenance checks as the key next actions.",
+                    "status": {"level": "success", "issues": []},
+                    "metrics": [
+                        {"label": "Matched Documents", "value": "2", "unit": "documents"},
+                        {"label": "Matched Sources", "value": "2", "unit": "sources"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "Diagnostic evidence found",
+                            "severity": "high",
+                            "detail": "The retrieved material includes fault-code and subsystem evidence relevant to repair triage.",
+                        },
+                        {
+                            "title": "Maintenance guidance present",
+                            "severity": "medium",
+                            "detail": "The service context includes inspection and maintenance actions that should be applied before closure.",
+                        },
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Validate the DTC against the diagnostic procedure before replacing components."},
+                        {"priority": 2, "action": "Apply the cited brake and maintenance inspection steps to the service checklist."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "automotive",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [],
+                    },
+                },
+                {
+                    "domain": "manufacturing",
+                    "title": "Manufacturing Dashboard Report",
+                    "summary": "The retrieved manufacturing context points to corrective action, SOP validation, and line-restart controls as the key next steps.",
+                    "status": {"level": "success", "issues": []},
+                    "metrics": [
+                        {"label": "Matched Documents", "value": "2", "unit": "documents"},
+                        {"label": "Matched Sources", "value": "2", "unit": "sources"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "Quality incident evidence found",
+                            "severity": "high",
+                            "detail": "The retrieved material includes a defect or non-conformance context that should trigger corrective action ownership.",
+                        },
+                        {
+                            "title": "Process guidance present",
+                            "severity": "medium",
+                            "detail": "The service context includes SOP-aligned restart or execution controls for production.",
+                        },
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Assign root-cause ownership and update the corrective-action workflow for the quality issue."},
+                        {"priority": 2, "action": "Validate the restart steps against the cited SOP before resuming production."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "manufacturing",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [],
+                    },
+                },
+                {
+                    "domain": "ecommerce",
+                    "title": "Ecommerce Dashboard Report",
+                    "summary": "The retrieved ecommerce context points to refund policy validation, order-status confirmation, and stock-aware customer guidance as the key next steps.",
+                    "status": {"level": "success", "issues": []},
+                    "metrics": [
+                        {"label": "Matched Documents", "value": "2", "unit": "documents"},
+                        {"label": "Matched Sources", "value": "2", "unit": "sources"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "Returns policy evidence found",
+                            "severity": "high",
+                            "detail": "The retrieved material includes return or refund rules that should guide support decisions.",
+                        },
+                        {
+                            "title": "Order operations context present",
+                            "severity": "medium",
+                            "detail": "The service context includes shipment, delivery, or order-status evidence relevant to customer response handling.",
+                        },
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Validate refund eligibility against the cited return policy before approving customer compensation."},
+                        {"priority": 2, "action": "Confirm the order and shipment state against retrieved support evidence before updating the customer."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "ecommerce",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [],
+                    },
+                },
             ]
         }
     )
@@ -337,6 +497,30 @@ class QueryRequest(BaseModel):
                     "source_id": "sample:financial_risk:FInal_GFR_upto_31_07_2024.pdf",
                     "domain": "financial_risk",
                     "max_results": 3,
+                },
+                {
+                    "query": "What should be done for a failed ATM debit complaint?",
+                    "source_id": "sample:banking_assistant:atm_notice.txt",
+                    "domain": "banking_assistant",
+                    "max_results": 2,
+                },
+                {
+                    "query": "What action is associated with DTC P0420?",
+                    "source_id": "sample:automotive:dtc_fault_codes.csv",
+                    "domain": "automotive",
+                    "max_results": 2,
+                },
+                {
+                    "query": "What should happen after a quality defect is reported?",
+                    "source_id": "sample:manufacturing:quality_incident.txt",
+                    "domain": "manufacturing",
+                    "max_results": 2,
+                },
+                {
+                    "query": "What should be done for a delayed order with a refund request?",
+                    "source_id": "sample:ecommerce:customer_issue.txt",
+                    "domain": "ecommerce",
+                    "max_results": 2,
                 },
             ]
         }

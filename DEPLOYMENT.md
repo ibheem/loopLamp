@@ -2,13 +2,18 @@
 
 ## Purpose
 
-This guide explains how to run `loopLamp` locally, which environment variables matter today, and what is already in place for future containerization.
+This guide explains how to run `loopLamp` locally, which environment variables matter today, and how to run the project with the included Docker setup.
 
 For Swagger testing flows, use `API_USAGE.md`.
 
 ## Current deployment shape
 
-Today the app is best treated as two local services:
+Today the app can run in either of these ways:
+
+- as two local dev services
+- as two containers via `docker compose`
+
+The same logical split is preserved in both cases:
 
 - a `FastAPI` backend on `http://127.0.0.1:8000`
 - a `Next.js` frontend on `http://localhost:3000`
@@ -18,6 +23,34 @@ This is the current recommended setup because:
 - it is already tested in the repo
 - the frontend is configured to call the backend over HTTP
 - the backend stores uploaded source files locally in `uploaded_sources/`
+
+## Docker run
+
+From the project root:
+
+```bash
+cd loopLamp
+cp .env.example .env
+docker compose up --build
+```
+
+Container URLs:
+
+- API root: `http://127.0.0.1:8000/`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- frontend UI: `http://localhost:3000`
+
+To stop:
+
+```bash
+docker compose down
+```
+
+To stop and remove the uploaded-source volume too:
+
+```bash
+docker compose down -v
+```
 
 ## Prerequisites
 
@@ -115,6 +148,12 @@ cd loopLamp/frontend
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run dev
 ```
 
+For Docker Compose, the same variables can live in `.env`:
+
+```bash
+cp .env.example .env
+```
+
 ## Local data and persistence
 
 These folders matter at runtime:
@@ -128,7 +167,9 @@ Important behavior:
 - uploaded source metadata is stored in `uploaded_sources/index.json`
 - deleting `uploaded_sources/` removes uploaded source state
 
-If you want uploads to survive restarts in a server deployment, this directory should be backed by a persistent volume.
+In the Docker setup, this is already mounted as a named volume called `uploaded_sources`.
+
+If you want uploads to survive deployment replacement in a real server environment, keep this path on persistent storage.
 
 ## Smoke-test sequence
 
@@ -160,9 +201,9 @@ cd loopLamp/frontend
 npm test
 ```
 
-## Production-minded notes
+## Container notes
 
-The project is not fully containerized yet, but the architecture is already moving in a container-friendly direction:
+The included container setup is intentionally small and practical:
 
 - backend and frontend are clearly separated
 - API URL is configurable from the frontend
@@ -170,9 +211,20 @@ The project is not fully containerized yet, but the architecture is already movi
 - FastAPI app entrypoint is explicit
 - Next.js app entrypoint is explicit
 
-## Containerization readiness
+## Included container assets
 
-If we containerize next, the clean split is:
+The repo now includes:
+
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `docker-compose.yml`
+- `.dockerignore`
+- `frontend/.dockerignore`
+- `.env.example`
+
+## Container layout
+
+The current split is:
 
 ### Backend container
 
@@ -191,28 +243,15 @@ If we containerize next, the clean split is:
 
 ### Compose-level wiring
 
-A future `docker-compose.yml` would likely define:
+`docker-compose.yml` defines:
 
 - `backend`
 - `frontend`
-- optional vector store or database later, if retrieval moves beyond local persistence
-
-## Recommended next container step
-
-The next best deployment step is:
-
-1. add `Dockerfile` for backend
-2. add `Dockerfile` for frontend
-3. add `docker-compose.yml`
-4. mount `uploaded_sources/` as a volume
-5. keep `test_data/` available to the backend container
-
-That gives us reproducible local startup without changing the current architecture.
+- named volume for `uploaded_sources`
 
 ## Known limitations today
 
-- no Docker files are committed yet
-- uploaded sources are local-disk only
+- uploaded sources are still local-disk based, even though Docker now preserves them through a named volume
 - no external database is required yet
 - no cloud storage integration exists yet
 - no reverse proxy or TLS setup is defined yet
@@ -221,8 +260,8 @@ That gives us reproducible local startup without changing the current architectu
 
 Right now, the best approach is:
 
-- continue local development with the current split backend and frontend
-- finish a couple more product-level features before introducing deployment complexity
-- add containerization immediately after that as an operational packaging step, not as an architecture rewrite
+- use the included Docker setup for demos, onboarding, and reproducible local startup
+- continue feature work without changing the architecture
+- address persistence of external data feeds as a separate next step
 
 That keeps the system clean and avoids overcomplicating it too early.

@@ -1,6 +1,10 @@
 import logging
 
+from backend.agents.automotive import AutomotiveAgent
+from backend.agents.banking_assistant import BankingAssistantAgent
+from backend.agents.ecommerce import EcommerceAgent
 from backend.agents.financial_risk import FinancialRiskAgent
+from backend.agents.manufacturing import ManufacturingAgent
 from backend.agents.medical_qa import MedicalQAAgent
 from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
@@ -25,6 +29,10 @@ class QueryPipeline:
         telecom_fallback = TelecomSecurityAgent()
         finance_fallback = FinancialRiskAgent()
         medical_fallback = MedicalQAAgent()
+        banking_fallback = BankingAssistantAgent()
+        automotive_fallback = AutomotiveAgent()
+        manufacturing_fallback = ManufacturingAgent()
+        ecommerce_fallback = EcommerceAgent()
         telecom_agent = OpenAIReportAgent(
             provider=OpenAIResponsesReportProvider(),
             fallback_agent=telecom_fallback,
@@ -40,10 +48,34 @@ class QueryPipeline:
             fallback_agent=medical_fallback,
             domain_name="medical_qa",
         )
+        banking_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=banking_fallback,
+            domain_name="banking_assistant",
+        )
+        automotive_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=automotive_fallback,
+            domain_name="automotive",
+        )
+        manufacturing_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=manufacturing_fallback,
+            domain_name="manufacturing",
+        )
+        ecommerce_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=ecommerce_fallback,
+            domain_name="ecommerce",
+        )
         self.agents = {
             "telecom_security": telecom_agent,
             "financial_risk": finance_agent,
             "medical_qa": medical_agent,
+            "banking_assistant": banking_agent,
+            "automotive": automotive_agent,
+            "manufacturing": manufacturing_agent,
+            "ecommerce": ecommerce_agent,
             "general": telecom_agent,
         }
 

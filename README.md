@@ -95,6 +95,19 @@ The UI now supports:
 - choosing a saved source from the backend registry
 - uploading a new source document for contextual querying
 
+## Containerized run
+
+```bash
+cd loopLamp
+cp .env.example .env
+docker compose up --build
+```
+
+Then open:
+
+- backend docs: `http://127.0.0.1:8000/docs`
+- frontend UI: `http://localhost:3000`
+
 ## Query example
 
 ```bash
@@ -160,6 +173,8 @@ The current planned domain set is:
 - `banking_assistant`
 - `automotive`
 - `manufacturing`
+- `ecommerce`
+- `manufacturing`
 - `financial_sentiment`
 - `sebi_regulatory`
 
@@ -168,6 +183,8 @@ Currently implemented:
 - `telecom_security`
 - `financial_risk`
 - `medical_qa`
+- `banking_assistant`
+- `automotive`
 
 ## Notes
 

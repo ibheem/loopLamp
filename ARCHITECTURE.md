@@ -28,6 +28,8 @@ The project now explicitly tracks these domains:
 - `banking_assistant`
 - `automotive`
 - `manufacturing`
+- `ecommerce`
+- `manufacturing`
 - `financial_sentiment`
 - `sebi_regulatory`
 
@@ -38,6 +40,8 @@ Currently implemented domains:
 - `telecom_security`
 - `financial_risk`
 - `medical_qa`
+- `banking_assistant`
+- `automotive`
 
 ## Current Request Flow
 

@@ -8,6 +8,10 @@ def test_source_registry_lists_sample_sources():
     assert any(record.domain == "telecom_security" for record in records)
     assert any(record.domain == "financial_risk" for record in records)
     assert any(record.domain == "medical_qa" for record in records)
+    assert any(record.domain == "banking_assistant" for record in records)
+    assert any(record.domain == "automotive" for record in records)
+    assert any(record.domain == "manufacturing" for record in records)
+    assert any(record.domain == "ecommerce" for record in records)
 
 
 def test_source_registry_can_save_upload(tmp_path):

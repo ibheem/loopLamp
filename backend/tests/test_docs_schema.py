@@ -61,6 +61,10 @@ def test_dashboard_response_schema_contains_domain_examples():
     assert "telecom_security" in serialized
     assert "financial_risk" in serialized
     assert "medical_qa" in serialized
+    assert "banking_assistant" in serialized
+    assert "automotive" in serialized
+    assert "manufacturing" in serialized
+    assert "ecommerce" in serialized
     assert "Telecom Security Dashboard Report" in serialized
 
 
@@ -73,3 +77,7 @@ def test_openapi_dashboard_endpoint_includes_examples():
     assert "Telecom Security Dashboard Report" in serialized
     assert "Financial Risk Dashboard Report" in serialized
     assert "Medical Qa Dashboard Report" in serialized
+    assert "Banking Assistant Dashboard Report" in serialized
+    assert "Automotive Dashboard Report" in serialized
+    assert "Manufacturing Dashboard Report" in serialized
+    assert "Ecommerce Dashboard Report" in serialized
