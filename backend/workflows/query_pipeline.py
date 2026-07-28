@@ -9,6 +9,7 @@ from backend.services.document_ingestion import DocumentIngestionService
 from backend.services.llm_provider import OpenAIResponsesReportProvider
 from backend.services.report_evaluator import evaluate_report
 from backend.services.retrieval import RetrievalService
+from backend.services.source_registry import SourceRegistryService
 from backend.services.vector_store import build_vector_db
 from backend.workflows.query_graph import QueryGraphWorkflow
 
@@ -19,6 +20,7 @@ class QueryPipeline:
     def __init__(self):
         self.ingestion_service = DocumentIngestionService()
         self.retrieval_service = RetrievalService()
+        self.source_registry = SourceRegistryService()
         self.workflow = QueryGraphWorkflow(self.retrieval_service)
         telecom_fallback = TelecomSecurityAgent()
         finance_fallback = FinancialRiskAgent()
@@ -51,7 +53,11 @@ class QueryPipeline:
             supported = ", ".join(sorted(self.agents))
             raise ValueError(f"Unsupported domain '{request.domain}'. Supported domains: {supported}")
 
-        documents = self.ingestion_service.ingest(request.document_path)
+        source_path = request.document_path
+        if request.source_id:
+            source_path = str(self.source_registry.resolve_source_path(request.source_id))
+
+        documents = self.ingestion_service.ingest(source_path)
         vector_db = build_vector_db(documents)
 
         execution = self.workflow.run(agent, vector_db, request)

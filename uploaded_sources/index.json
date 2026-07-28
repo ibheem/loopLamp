@@ -1,0 +1,56 @@
+{
+  "upload:20260728120649_upload_note.txt": {
+    "source_id": "upload:20260728120649_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728120649_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:06:49.254081+00:00"
+  },
+  "upload:20260728120705_upload_note.txt": {
+    "source_id": "upload:20260728120705_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728120705_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:07:05.486563+00:00"
+  },
+  "upload:20260728121543_HealthCareMagic-100k.json": {
+    "source_id": "upload:20260728121543_HealthCareMagic-100k.json",
+    "label": "HealthCareMagic-100k.json",
+    "domain": "medical_qa",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728121543_HealthCareMagic-100k.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:15:43.538801+00:00"
+  },
+  "upload:20260728121601_1727242783639.pdf": {
+    "source_id": "upload:20260728121601_1727242783639.pdf",
+    "label": "1727242783639.pdf",
+    "domain": "medical_qa",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728121601_1727242783639.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:16:01.710578+00:00"
+  },
+  "upload:20260728122356_upload_note.txt": {
+    "source_id": "upload:20260728122356_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728122356_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:23:56.671937+00:00"
+  },
+  "upload:20260728122517_upload_note.txt": {
+    "source_id": "upload:20260728122517_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728122517_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:25:17.504736+00:00"
+  }
+}

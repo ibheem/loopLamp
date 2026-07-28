@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DomainMetric(BaseModel):
@@ -73,6 +73,125 @@ class DashboardStatus(BaseModel):
 
 
 class DashboardResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "domain": "telecom_security",
+                    "title": "Telecom Security Dashboard Report",
+                    "summary": "Critical SS7 exposure remains active on the roaming edge and needs immediate signaling firewall enforcement.",
+                    "status": {
+                        "level": "warning",
+                        "issues": [
+                            "Grounding confidence reduced because mitigation ownership is implied rather than explicitly assigned."
+                        ],
+                    },
+                    "metrics": [
+                        {"label": "Incident Severity", "value": "critical", "unit": ""},
+                        {"label": "Affected Nodes", "value": "3", "unit": "sites"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "SS7 filtering gap",
+                            "severity": "high",
+                            "detail": "Inbound signaling traffic is not consistently screened on interconnect routes.",
+                        }
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Enable interconnect screening rules and validate with roaming test traffic."},
+                        {"priority": 2, "action": "Assign telecom security operations as the mitigation owner for weekly review."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "telecom_security",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": False,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [
+                            "Grounding confidence reduced because mitigation ownership is implied rather than explicitly assigned."
+                        ],
+                    },
+                },
+                {
+                    "domain": "financial_risk",
+                    "title": "Financial Risk Dashboard Report",
+                    "summary": "The document emphasizes approval control, delegated authority, and audit traceability before fund release.",
+                    "status": {"level": "success", "issues": []},
+                    "metrics": [
+                        {"label": "Control Focus", "value": "pre-approval", "unit": ""},
+                        {"label": "Audit Readiness", "value": "high", "unit": ""},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "Delegated authority enforced",
+                            "severity": "medium",
+                            "detail": "Approvals must align with the designated financial authority matrix.",
+                        }
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Validate sanctioning authority before procurement or release activity."},
+                        {"priority": 2, "action": "Retain approval trail and supporting documentation for audit review."},
+                    ],
+                    "source_count": 3,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "financial_risk",
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": [],
+                    },
+                },
+                {
+                    "domain": "medical_qa",
+                    "title": "Medical Qa Dashboard Report",
+                    "summary": "The retrieved context supports triage advice but still indicates escalation for persistent chest pain symptoms.",
+                    "status": {"level": "info", "issues": ["Fallback mode used; clinical review still required."]},
+                    "metrics": [
+                        {"label": "Symptom Risk", "value": "moderate", "unit": ""},
+                        {"label": "Escalation Window", "value": "24", "unit": "hours"},
+                    ],
+                    "highlights": [
+                        {
+                            "title": "Escalation recommended",
+                            "severity": "high",
+                            "detail": "Persistent chest discomfort warrants physician follow-up even when initial advice is conservative.",
+                        }
+                    ],
+                    "actions": [
+                        {"priority": 1, "action": "Escalate to clinician review if symptoms persist or intensify."},
+                        {"priority": 2, "action": "Present response with a clear disclaimer that it is not a final diagnosis."},
+                    ],
+                    "source_count": 2,
+                    "execution": {
+                        "workflow_backend": "query_pipeline",
+                        "agent_type": "medical_qa",
+                        "provider_mode": "fallback",
+                        "provider_model": "",
+                        "used_fallback": True,
+                    },
+                    "evaluation": {
+                        "grounded": True,
+                        "has_sources": True,
+                        "has_recommendations": True,
+                        "issues": ["Fallback mode used; clinical review still required."],
+                    },
+                },
+            ]
+        }
+    )
+
     domain: str
     title: str
     summary: str
@@ -85,13 +204,125 @@ class DashboardResponse(BaseModel):
     evaluation: ReportEvaluation
 
 
+class SourceRecord(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "source_id": "sample:telecom_security:telecom_incident.txt",
+                "label": "telecom_incident.txt",
+                "domain": "telecom_security",
+                "path": "test_data/telecom_incident.txt",
+                "file_type": ".txt",
+                "origin": "sample",
+                "uploaded_at": None,
+            }
+        }
+    )
+
+    source_id: str
+    label: str
+    domain: str
+    path: str
+    file_type: str
+    origin: str
+    uploaded_at: Optional[str] = None
+
+
+class SourceListResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "sources": [
+                    {
+                        "source_id": "sample:telecom_security:telecom_incident.txt",
+                        "label": "telecom_incident.txt",
+                        "domain": "telecom_security",
+                        "path": "test_data/telecom_incident.txt",
+                        "file_type": ".txt",
+                        "origin": "sample",
+                        "uploaded_at": None,
+                    },
+                    {
+                        "source_id": "upload:20260728061500_field_notes.txt",
+                        "label": "field_notes.txt",
+                        "domain": "general",
+                        "path": "uploaded_sources/20260728061500_field_notes.txt",
+                        "file_type": ".txt",
+                        "origin": "upload",
+                        "uploaded_at": "2026-07-28T06:15:00+00:00",
+                    },
+                ]
+            }
+        }
+    )
+
+    sources: List[SourceRecord]
+
+
+class UploadSourceResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "source": {
+                    "source_id": "upload:20260728061500_field_notes.txt",
+                    "label": "field_notes.txt",
+                    "domain": "general",
+                    "path": "uploaded_sources/20260728061500_field_notes.txt",
+                    "file_type": ".txt",
+                    "origin": "upload",
+                    "uploaded_at": "2026-07-28T06:15:00+00:00",
+                }
+            }
+        }
+    )
+
+    source: SourceRecord
+
+
+class DeleteSourceResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "source_id": "upload:20260728061500_field_notes.txt",
+                "deleted": True,
+            }
+        }
+    )
+
+    source_id: str
+    deleted: bool = True
+
+
+class UploadSourceRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "filename": "field_notes.txt",
+                    "domain": "general",
+                    "content_base64": "U1M3IG1pdGlnYXRpb24gYWN0aW9ucyBmb3IgdGhlIG9wZXJhdGlvbnMgdGVhbS4=",
+                },
+                {
+                    "filename": "medical_case_summary.json",
+                    "domain": "medical_qa",
+                    "content_base64": "eyJjYXNlIjogIkNhcmRpYWMgcmV2aWV3IiwgIm5vdGVzIjogWyJjaGVzdCBwYWluIiwgImVjZyJdfQ==",
+                },
+            ]
+        }
+    )
+
+    filename: str = Field(..., min_length=1)
+    domain: str = Field(default="general", min_length=1)
+    content_base64: str = Field(..., min_length=1)
+
+
 class QueryRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
                     "query": "What action is recommended for the SS7 issue?",
-                    "document_path": "test_data/telecom_incident.txt",
+                    "source_id": "sample:telecom_security:telecom_incident.txt",
                     "domain": "telecom_security",
                     "max_results": 2,
                 },
@@ -102,9 +333,9 @@ class QueryRequest(BaseModel):
                     "max_results": 3,
                 },
                 {
-                    "query": "What refund policy is mentioned?",
-                    "document_path": "test_data/ecommerce-full-100products.pdf",
-                    "domain": "telecom_security",
+                    "query": "Summarize financial accountability rules.",
+                    "source_id": "sample:financial_risk:FInal_GFR_upto_31_07_2024.pdf",
+                    "domain": "financial_risk",
                     "max_results": 3,
                 },
             ]
@@ -116,10 +347,15 @@ class QueryRequest(BaseModel):
         min_length=3,
         examples=["What action is recommended for the SS7 issue?"],
     )
-    document_path: str = Field(
-        ...,
+    document_path: Optional[str] = Field(
+        default=None,
         min_length=1,
         examples=["test_data/telecom_incident.txt"],
+    )
+    source_id: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        examples=["sample:telecom_security:telecom_incident.txt"],
     )
     domain: str = Field(
         default="telecom_security",
@@ -127,6 +363,12 @@ class QueryRequest(BaseModel):
         examples=["telecom_security"],
     )
     max_results: int = Field(default=3, ge=1, le=10, examples=[2])
+
+    @model_validator(mode="after")
+    def validate_source_reference(self):
+        if not self.document_path and not self.source_id:
+            raise ValueError("Either document_path or source_id must be provided.")
+        return self
 
 
 class SourceDocument(BaseModel):
@@ -146,4 +388,14 @@ class QueryResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"detail": "Unsupported file type: .exe"},
+                {"detail": "Only uploaded sources can be deleted."},
+                {"detail": "Unknown source_id: upload:missing.txt"},
+            ]
+        }
+    )
+
     detail: str

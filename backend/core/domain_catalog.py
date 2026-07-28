@@ -5,9 +5,7 @@ DOMAIN_CATALOG = {
         "priority": 1,
         "status": "implemented",
         "sample_data": [
-            "test_data/telecom_security/telecom_incident.txt",
-            "test_data/telecom_security/threat_advisory.pdf",
-            "test_data/telecom_security/ss7_logs.txt",
+            "test_data/telecom_incident.txt",
         ],
         "use_cases": [
             "incident report analysis",

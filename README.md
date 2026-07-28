@@ -70,6 +70,8 @@ pytest -q
 
 - `ARCHITECTURE.md` contains the current end-to-end app documentation, request flow, runtime modes, and testing guide.
 - `DOMAIN_ROADMAP.md` contains the multi-domain rollout plan, including Automotive and Manufacturing.
+- `API_USAGE.md` contains copy-paste Swagger flows for source listing, upload, query, dashboard generation, and delete.
+- `DEPLOYMENT.md` contains local run instructions, active environment variables, persistence notes, and containerization readiness guidance.
 
 ## Frontend
 
@@ -87,6 +89,11 @@ Override with:
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run dev
 ```
+
+The UI now supports:
+
+- choosing a saved source from the backend registry
+- uploading a new source document for contextual querying
 
 ## Query example
 
@@ -111,6 +118,24 @@ curl -X POST http://127.0.0.1:8000/dashboard/report \
     "document_path": "test_data/telecom_incident.txt",
     "domain": "telecom_security",
     "max_results": 2
+  }'
+```
+
+## Source management
+
+Available source endpoints:
+
+```bash
+curl http://127.0.0.1:8000/sources
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/sources/upload \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "filename": "telecom_incident.txt",
+    "domain": "telecom_security",
+    "content_base64": "SGVsbG8gd29ybGQ="
   }'
 ```
 

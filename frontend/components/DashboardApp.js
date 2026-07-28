@@ -1,21 +1,96 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { defaultFormState, getStatusTone } from "../lib/dashboard";
+import {
+  defaultFormState,
+  domainOptions,
+  findSourceById,
+  formatSourceLabel,
+  getPreferredSourceId,
+  getStatusTone,
+  groupSourcesByDomain,
+} from "../lib/dashboard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 export default function DashboardApp() {
   const [formState, setFormState] = useState(defaultFormState);
+  const [sources, setSources] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   const statusTone = useMemo(
     () => getStatusTone(dashboard?.status?.level || "info"),
     [dashboard]
   );
+  const groupedSources = useMemo(() => groupSourcesByDomain(sources), [sources]);
+  const selectedSource = useMemo(
+    () => findSourceById(sources, formState.sourceId),
+    [sources, formState.sourceId]
+  );
+
+  async function loadSources({ showRefreshing = false } = {}) {
+    if (showRefreshing) {
+      setRefreshing(true);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/sources`);
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || "Unable to load sources.");
+      }
+      setSources(payload.sources);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      if (showRefreshing) {
+        setRefreshing(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadInitialSources() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/sources`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || "Unable to load sources.");
+        }
+        if (active) {
+          setSources(payload.sources);
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError.message);
+        }
+      }
+    }
+
+    loadInitialSources();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sources.length) {
+      return;
+    }
+
+    const preferredSourceId = getPreferredSourceId(sources, formState.domain, formState.sourceId);
+    if (preferredSourceId && preferredSourceId !== formState.sourceId) {
+      setFormState((current) => ({ ...current, sourceId: preferredSourceId }));
+    }
+  }, [sources, formState.domain, formState.sourceId]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -28,7 +103,7 @@ export default function DashboardApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: formState.query,
-          document_path: formState.documentPath,
+          source_id: formState.sourceId,
           domain: formState.domain,
           max_results: Number(formState.maxResults),
         }),
@@ -52,6 +127,98 @@ export default function DashboardApp() {
     return function onChange(event) {
       setFormState((current) => ({ ...current, [field]: event.target.value }));
     };
+  }
+
+  function handleSourceChange(event) {
+    const sourceId = event.target.value;
+    const nextSource = findSourceById(sources, sourceId);
+
+    setFormState((current) => ({
+      ...current,
+      sourceId,
+      domain:
+        nextSource && nextSource.domain !== "general"
+          ? nextSource.domain
+          : current.domain,
+    }));
+  }
+
+  async function handleRefresh() {
+    setError("");
+    await loadSources({ showRefreshing: true });
+  }
+
+  async function handleUpload(event) {
+    const [file] = event.target.files || [];
+    if (!file) {
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    try {
+      const bytes = await file.arrayBuffer();
+      const contentBase64 = window.btoa(
+        Array.from(new Uint8Array(bytes))
+          .map((byte) => String.fromCharCode(byte))
+          .join("")
+      );
+      const response = await fetch(`${API_BASE_URL}/sources/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          domain: formState.domain,
+          content_base64: contentBase64,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || "Upload failed.");
+      }
+      setSources((current) => [...current, payload.source]);
+      setFormState((current) => ({
+        ...current,
+        domain: payload.source.domain !== "general" ? payload.source.domain : current.domain,
+        sourceId: payload.source.source_id,
+      }));
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleDeleteSource() {
+    if (!selectedSource || selectedSource.origin !== "upload") {
+      return;
+    }
+    if (!window.confirm(`Delete uploaded source "${selectedSource.label}"?`)) {
+      return;
+    }
+
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/sources/${encodeURIComponent(selectedSource.source_id)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || "Delete failed.");
+      }
+
+      setSources((current) =>
+        current.filter((source) => source.source_id !== selectedSource.source_id)
+      );
+      setDashboard(null);
+    } catch (deleteError) {
+      setError(deleteError.message);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -82,16 +249,31 @@ export default function DashboardApp() {
             />
           </label>
           <label>
-            <span>Document Path</span>
-            <input value={formState.documentPath} onChange={updateField("documentPath")} />
+            <span>Saved Source</span>
+            <select value={formState.sourceId} onChange={handleSourceChange}>
+              {groupedSources.length ? (
+                groupedSources.map((group) => (
+                  <optgroup key={group.domain} label={group.label}>
+                    {group.sources.map((source) => (
+                      <option key={source.source_id} value={source.source_id}>
+                        {formatSourceLabel(source)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              ) : (
+                <option value="">No saved sources yet</option>
+              )}
+            </select>
           </label>
           <label>
             <span>Domain</span>
             <select value={formState.domain} onChange={updateField("domain")}>
-              <option value="telecom_security">telecom_security</option>
-              <option value="financial_risk">financial_risk</option>
-              <option value="medical_qa">medical_qa</option>
-              <option value="general">general</option>
+              {domainOptions.map((domain) => (
+                <option key={domain} value={domain}>
+                  {domain}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -104,10 +286,36 @@ export default function DashboardApp() {
               onChange={updateField("maxResults")}
             />
           </label>
+          <label>
+            <span>Upload New Source</span>
+            <input type="file" accept=".txt,.md,.pdf,.csv,.json" onChange={handleUpload} />
+          </label>
           <button className="primary-button" disabled={loading} type="submit">
             {loading ? "Generating..." : "Generate Dashboard"}
           </button>
+          <button
+            className="secondary-button"
+            disabled={refreshing || loading || uploading}
+            type="button"
+            onClick={handleRefresh}
+          >
+            {refreshing ? "Refreshing..." : "Refresh Sources"}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!selectedSource || selectedSource.origin !== "upload" || deleting}
+            type="button"
+            onClick={handleDeleteSource}
+          >
+            {deleting ? "Deleting..." : "Delete Uploaded Source"}
+          </button>
         </form>
+        {selectedSource ? (
+          <p className="hero-label">
+            Selected source: {selectedSource.label} · {selectedSource.domain} · {selectedSource.origin}
+          </p>
+        ) : null}
+        {uploading ? <p className="hero-label">Uploading source...</p> : null}
         {error ? <p className="error-banner">{error}</p> : null}
       </section>
 

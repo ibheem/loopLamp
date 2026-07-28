@@ -4,6 +4,9 @@
 
 `loopLamp` is a backend-first domain reporting application that ingests local documents, retrieves relevant context, and returns a dashboard-ready `DomainReport`.
 
+For step-by-step Swagger testing flows, use `API_USAGE.md`.
+For local startup and deployment notes, use `DEPLOYMENT.md`.
+
 The current design keeps:
 
 - `FastAPI` for the HTTP API
@@ -51,6 +54,8 @@ Currently implemented domains:
    - `sources`
    - execution metadata
 9. `POST /dashboard/report` can transform that response into a UI-friendly dashboard payload.
+10. `GET /sources` lists available sample and uploaded source documents.
+11. `POST /sources/upload` saves new contextual files into a managed upload area.
 
 ## Runtime Modes
 
@@ -136,6 +141,24 @@ Example payload:
   "max_results": 2
 }
 ```
+
+### `GET /sources`
+
+Returns the saved source registry for the UI.
+
+### `POST /sources/upload`
+
+Uploads a supported local file into the managed source registry.
+
+The current implementation uses a JSON request with base64 content so the app does not depend on multipart form parsing packages.
+
+Supported upload types:
+
+- `.txt`
+- `.md`
+- `.pdf`
+- `.csv`
+- `.json`
 
 Example response shape:
 
@@ -235,6 +258,8 @@ Minimal Next.js App Router UI:
 - `lib/` for tiny presentation helpers
 - `tests/` for no-dependency UI helper checks
 
+The UI now uses a saved-source flow instead of asking users to type raw file paths.
+
 ## How To Run
 
 ```bash
@@ -294,6 +319,7 @@ The app is:
 - LLM-capable with graceful fallback
 - dashboard-endpoint ready
 - minimal-UI ready
+- source-registry ready
 
 The app is not yet:
 
