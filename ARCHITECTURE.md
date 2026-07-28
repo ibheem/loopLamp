@@ -28,6 +28,7 @@ This keeps the system clean while allowing `LangChain` and `LangGraph` to be int
    - `report`
    - `sources`
    - execution metadata
+9. `POST /dashboard/report` can transform that response into a UI-friendly dashboard payload.
 
 ## Runtime Modes
 
@@ -96,6 +97,41 @@ Example response shape:
     "source_refs": []
   },
   "sources": []
+}
+```
+
+### `POST /dashboard/report`
+
+Generates a dashboard-oriented payload for cards, lists, highlights, and chart-ready metrics.
+
+Example payload:
+
+```json
+{
+  "query": "What action is recommended for the SS7 issue?",
+  "document_path": "test_data/telecom_incident.txt",
+  "domain": "telecom_security",
+  "max_results": 2
+}
+```
+
+Example response shape:
+
+```json
+{
+  "domain": "telecom_security",
+  "title": "Telecom Security Dashboard Report",
+  "summary": "Based on the retrieved context...",
+  "status": {
+    "level": "info",
+    "issues": []
+  },
+  "metrics": [],
+  "highlights": [],
+  "actions": [],
+  "source_count": 1,
+  "execution": {},
+  "evaluation": {}
 }
 ```
 
@@ -213,6 +249,7 @@ The app is:
 - LangChain-aware in `services/`
 - graph-ready in `workflows/`
 - LLM-capable with graceful fallback
+- dashboard-endpoint ready
 
 The app is not yet:
 
@@ -226,5 +263,5 @@ The app is not yet:
 1. Add observability metadata to reports and workflow logs.
 2. Add evaluator checks for grounding and empty evidence.
 3. Introduce a second domain agent using the same `DomainReport` contract.
-4. Add a dashboard-specific endpoint for chart-ready payloads.
-5. Add frontend visualization only after output contracts are stable.
+4. Add frontend visualization on top of `/dashboard/report`.
+5. Containerize after the frontend/backend contract is stable.

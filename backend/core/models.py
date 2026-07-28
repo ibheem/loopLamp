@@ -50,6 +50,41 @@ class ExecutionMetadata(BaseModel):
     used_fallback: bool = False
 
 
+class DashboardMetric(BaseModel):
+    label: str
+    value: str
+    unit: str = ""
+
+
+class DashboardHighlight(BaseModel):
+    title: str
+    severity: str
+    detail: str
+
+
+class DashboardAction(BaseModel):
+    priority: int
+    action: str
+
+
+class DashboardStatus(BaseModel):
+    level: str
+    issues: List[str] = Field(default_factory=list)
+
+
+class DashboardResponse(BaseModel):
+    domain: str
+    title: str
+    summary: str
+    status: DashboardStatus
+    metrics: List[DashboardMetric] = Field(default_factory=list)
+    highlights: List[DashboardHighlight] = Field(default_factory=list)
+    actions: List[DashboardAction] = Field(default_factory=list)
+    source_count: int
+    execution: ExecutionMetadata
+    evaluation: ReportEvaluation
+
+
 class QueryRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={

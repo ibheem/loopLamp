@@ -12,6 +12,7 @@ An agentic backend project for document ingestion, retrieval, and domain workflo
 - First concrete domain agent in `backend/agents/telecom_security.py`
 - First true LLM-capable agent lives in `backend/agents/openai_report_agent.py`
 - Structured `DomainReport` output contract for dashboard-ready domain responses
+- Dashboard-oriented transformation endpoint is available through `/dashboard/report`
 - Lightweight in-memory retrieval store so the scaffold works before heavyweight AI dependencies are installed
 - Pytest coverage for the API, ingestion flow, retrieval flow, CSV handling, and vector search behavior
 - Repo-level architecture and usage guide in `ARCHITECTURE.md`
@@ -73,6 +74,19 @@ pytest -q
 
 ```bash
 curl -X POST http://127.0.0.1:8000/query \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "What action is recommended for the SS7 issue?",
+    "document_path": "test_data/telecom_incident.txt",
+    "domain": "telecom_security",
+    "max_results": 2
+  }'
+```
+
+## Dashboard example
+
+```bash
+curl -X POST http://127.0.0.1:8000/dashboard/report \
   -H 'Content-Type: application/json' \
   -d '{
     "query": "What action is recommended for the SS7 issue?",

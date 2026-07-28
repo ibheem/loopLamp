@@ -1,4 +1,4 @@
-from backend.app.main import query_documents, root
+from backend.app.main import dashboard_report, query_documents, root
 from backend.core.models import QueryRequest
 
 
@@ -24,3 +24,20 @@ def test_query_endpoint():
     assert response.report.insights
     assert response.report.recommendations
     assert response.report.source_refs
+
+
+def test_dashboard_report_endpoint():
+    response = dashboard_report(
+        QueryRequest(
+            query="What action is recommended for the SS7 issue?",
+            document_path="test_data/telecom_incident.txt",
+            domain="telecom_security",
+            max_results=2,
+        )
+    )
+
+    assert response.domain == "telecom_security"
+    assert response.title == "Telecom Security Dashboard Report"
+    assert response.source_count > 0
+    assert response.metrics
+    assert response.actions

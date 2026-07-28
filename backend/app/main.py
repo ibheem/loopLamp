@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 
-from backend.core.models import ErrorResponse, QueryRequest, QueryResponse
+from backend.core.models import DashboardResponse, ErrorResponse, QueryRequest, QueryResponse
+from backend.services.dashboard_transformer import build_dashboard_response
 from backend.workflows.query_pipeline import QueryPipeline
 
 app = FastAPI(
@@ -37,5 +38,25 @@ def root():
 def query_documents(request: QueryRequest):
     try:
         return pipeline.run(request)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/dashboard/report",
+    response_model=DashboardResponse,
+    summary="Generate a dashboard-friendly report payload",
+    tags=["Dashboard"],
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid domain, unsupported file type, or missing document path.",
+        }
+    },
+)
+def dashboard_report(request: QueryRequest):
+    try:
+        query_response = pipeline.run(request)
+        return build_dashboard_response(query_response)
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
