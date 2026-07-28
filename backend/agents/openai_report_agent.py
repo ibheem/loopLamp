@@ -16,9 +16,15 @@ class OpenAIReportAgent(DomainAgent):
     def __init__(self, provider: ReportLLMProvider, fallback_agent: DomainAgent = None):
         self.provider = provider
         self.fallback_agent = fallback_agent or TelecomSecurityAgent()
+        self._last_provider_mode = "fallback"
+        self._last_provider_model = ""
+        self._last_used_fallback = True
 
     def run(self, query: str, context_documents: List[Document]) -> DomainReport:
         if not context_documents:
+            self._last_provider_mode = "fallback"
+            self._last_provider_model = ""
+            self._last_used_fallback = True
             return self.fallback_agent.run(query, context_documents)
 
         source_refs = self._build_source_refs(context_documents)
@@ -30,9 +36,15 @@ class OpenAIReportAgent(DomainAgent):
                 context_documents=context_documents,
                 source_refs=source_refs,
             )
+            self._last_provider_mode = "openai"
+            self._last_provider_model = getattr(self.provider, "model", "")
+            self._last_used_fallback = False
             return self._normalize_report(report, len(context_documents), source_refs)
         except ProviderUnavailableError:
             logger.info("llm_agent_fallback reason=provider_unavailable domain=%s", self.name)
+            self._last_provider_mode = "fallback"
+            self._last_provider_model = getattr(self.provider, "model", "")
+            self._last_used_fallback = True
             return self.fallback_agent.run(query, context_documents)
         except Exception as exc:
             logger.warning(
@@ -40,6 +52,9 @@ class OpenAIReportAgent(DomainAgent):
                 self.name,
                 exc.__class__.__name__,
             )
+            self._last_provider_mode = "fallback"
+            self._last_provider_model = getattr(self.provider, "model", "")
+            self._last_used_fallback = True
             return self.fallback_agent.run(query, context_documents)
 
     def _build_source_refs(self, context_documents: List[Document]) -> List[DomainSourceRef]:
@@ -68,3 +83,11 @@ class OpenAIReportAgent(DomainAgent):
         if not normalized.source_refs:
             normalized.source_refs = source_refs
         return normalized
+
+    def runtime_metadata(self):
+        return {
+            "agent_type": self.__class__.__name__,
+            "provider_mode": self._last_provider_mode,
+            "provider_model": self._last_provider_model,
+            "used_fallback": "true" if self._last_used_fallback else "false",
+        }

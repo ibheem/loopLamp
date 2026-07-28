@@ -35,6 +35,21 @@ class DomainReport(BaseModel):
     source_refs: List[DomainSourceRef] = Field(default_factory=list)
 
 
+class ReportEvaluation(BaseModel):
+    grounded: bool
+    has_sources: bool
+    has_recommendations: bool
+    issues: List[str] = Field(default_factory=list)
+
+
+class ExecutionMetadata(BaseModel):
+    workflow_backend: str
+    agent_type: str
+    provider_mode: str
+    provider_model: str = ""
+    used_fallback: bool = False
+
+
 class QueryRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -90,6 +105,8 @@ class QueryResponse(BaseModel):
     attempts: int
     used_reflection: bool
     report: DomainReport
+    evaluation: ReportEvaluation
+    execution: ExecutionMetadata
     sources: List[SourceDocument]
 
 
