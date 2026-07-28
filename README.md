@@ -8,6 +8,7 @@ An agentic backend project for document ingestion, retrieval, and domain workflo
 - Service layer for PDF, CSV, and text ingestion in `backend/services/document_ingestion.py`
 - Retrieval workflow with bounded reflection retries in `backend/workflows/query_pipeline.py`
 - First concrete domain agent in `backend/agents/telecom_security.py`
+- Structured `DomainReport` output contract for dashboard-ready domain responses
 - Lightweight in-memory retrieval store so the scaffold works before heavyweight AI dependencies are installed
 - Pytest coverage for the API, ingestion flow, retrieval flow, CSV handling, and vector search behavior
 

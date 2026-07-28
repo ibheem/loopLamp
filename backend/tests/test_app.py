@@ -19,3 +19,8 @@ def test_query_endpoint():
     assert response.domain == "telecom_security"
     assert response.sources
     assert "retrieved context" in response.answer.lower()
+    assert response.report.domain == "telecom_security"
+    assert response.report.metrics
+    assert response.report.insights
+    assert response.report.recommendations
+    assert response.report.source_refs
