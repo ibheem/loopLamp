@@ -89,6 +89,7 @@ export default function DashboardApp() {
             <span>Domain</span>
             <select value={formState.domain} onChange={updateField("domain")}>
               <option value="telecom_security">telecom_security</option>
+              <option value="financial_risk">financial_risk</option>
               <option value="general">general</option>
             </select>
           </label>

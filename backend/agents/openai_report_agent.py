@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from backend.agents.base import DomainAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 class OpenAIReportAgent(DomainAgent):
     name = "telecom_security"
 
-    def __init__(self, provider: ReportLLMProvider, fallback_agent: DomainAgent = None):
+    def __init__(self, provider: ReportLLMProvider, fallback_agent: Optional[DomainAgent] = None, domain_name: str = "telecom_security"):
         self.provider = provider
         self.fallback_agent = fallback_agent or TelecomSecurityAgent()
+        self.name = domain_name
         self._last_provider_mode = "fallback"
         self._last_provider_model = ""
         self._last_used_fallback = True

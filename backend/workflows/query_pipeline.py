@@ -1,5 +1,6 @@
 import logging
 
+from backend.agents.financial_risk import FinancialRiskAgent
 from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.core.models import ExecutionMetadata, QueryRequest, QueryResponse, SourceDocument
@@ -19,13 +20,21 @@ class QueryPipeline:
         self.retrieval_service = RetrievalService()
         self.workflow = QueryGraphWorkflow(self.retrieval_service)
         telecom_fallback = TelecomSecurityAgent()
-        openai_agent = OpenAIReportAgent(
+        finance_fallback = FinancialRiskAgent()
+        telecom_agent = OpenAIReportAgent(
             provider=OpenAIResponsesReportProvider(),
             fallback_agent=telecom_fallback,
+            domain_name="telecom_security",
+        )
+        finance_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=finance_fallback,
+            domain_name="financial_risk",
         )
         self.agents = {
-            "telecom_security": openai_agent,
-            "general": openai_agent,
+            "telecom_security": telecom_agent,
+            "financial_risk": finance_agent,
+            "general": telecom_agent,
         }
 
     def run(self, request: QueryRequest) -> QueryResponse:

@@ -15,6 +15,11 @@ try:
 except Exception:  # pragma: no cover - exercised through fallback tests
     RecursiveCharacterTextSplitter = None
 
+try:
+    from pypdf import PdfReader
+except Exception:  # pragma: no cover - exercised through fallback tests
+    PdfReader = None
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -104,12 +109,32 @@ def _extract_pdf_text_with_fallback(path: Path) -> str:
     return "\n".join(item.decode("latin1", errors="ignore") for item in printable)
 
 
+def _extract_pdf_text(path: Path) -> str:
+    if PdfReader is not None:
+        try:
+            reader = PdfReader(str(path))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+            cleaned = " ".join(text.split())
+            if cleaned:
+                logger.info("pdf_extraction_strategy strategy=pypdf source=%s", path.name)
+                return text
+        except Exception as exc:  # pragma: no cover - fallback exercised in tests
+            logger.info(
+                "pdf_extraction_strategy strategy=fallback reason=%s source=%s",
+                exc.__class__.__name__,
+                path.name,
+            )
+
+    logger.info("pdf_extraction_strategy strategy=manual_fallback source=%s", path.name)
+    return _extract_pdf_text_with_fallback(path)
+
+
 def ingest_pdf(path: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Document]:
     pdf_path = _resolve_input_path(path)
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {path}")
 
-    text = _extract_pdf_text_with_fallback(pdf_path)
+    text = _extract_pdf_text(pdf_path)
     chunks = _chunk_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     for index, chunk in enumerate(chunks):

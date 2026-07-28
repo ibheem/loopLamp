@@ -69,6 +69,7 @@ pytest -q
 ## Documentation
 
 - `ARCHITECTURE.md` contains the current end-to-end app documentation, request flow, runtime modes, and testing guide.
+- `DOMAIN_ROADMAP.md` contains the multi-domain rollout plan, including Automotive and Manufacturing.
 
 ## Frontend
 
@@ -123,6 +124,24 @@ curl -X POST http://127.0.0.1:8000/dashboard/report \
 - `backend/agents/openai_report_agent.py` uses an LLM provider when available and falls back to deterministic domain logic when local credentials are missing.
 - The current in-memory retrieval layer is the swap point for future LangChain retrievers, embeddings, and vector databases.
 - The next clean upgrade is replacing the in-memory retrieval service with LangChain or LangGraph-backed components while keeping the API and workflow contracts stable.
+
+## Domain scope
+
+The current planned domain set is:
+
+- `telecom_security`
+- `financial_risk`
+- `medical_qa`
+- `banking_assistant`
+- `automotive`
+- `manufacturing`
+- `financial_sentiment`
+- `sebi_regulatory`
+
+Currently implemented:
+
+- `telecom_security`
+- `financial_risk`
 
 ## Notes
 

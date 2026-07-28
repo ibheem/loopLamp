@@ -15,6 +15,26 @@ The current design keeps:
 
 This keeps the system clean while allowing `LangChain` and `LangGraph` to be introduced behind stable interfaces.
 
+## Planned Domains
+
+The project now explicitly tracks these domains:
+
+- `telecom_security`
+- `financial_risk`
+- `medical_qa`
+- `banking_assistant`
+- `automotive`
+- `manufacturing`
+- `financial_sentiment`
+- `sebi_regulatory`
+
+Automotive and Manufacturing are in scope and should be onboarded through the same shared contracts and workflow layers, not as separate architectures.
+
+Currently implemented domains:
+
+- `telecom_security`
+- `financial_risk`
+
 ## Current Request Flow
 
 1. A client calls `POST /query`.
