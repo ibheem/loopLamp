@@ -7,6 +7,7 @@
 The current design keeps:
 
 - `FastAPI` for the HTTP API
+- `Next.js` for the lightweight dashboard UI
 - `services/` for ingestion, retrieval, embeddings, and provider integrations
 - `workflows/` for orchestration and retry logic
 - `agents/` for domain behavior
@@ -204,6 +205,15 @@ Reference and regression tests for:
 - LLM fallback behavior
 - dashboard report contract
 
+### `frontend`
+
+Minimal Next.js App Router UI:
+
+- `app/` for layout and page entrypoints
+- `components/` for the dashboard client component
+- `lib/` for tiny presentation helpers
+- `tests/` for no-dependency UI helper checks
+
 ## How To Run
 
 ```bash
@@ -217,6 +227,18 @@ Open:
 
 - `http://127.0.0.1:8000/docs`
 - `http://127.0.0.1:8000/`
+
+For the UI:
+
+```bash
+cd /Users/prashant/capstone/loopLamp/frontend
+npm install
+npm run dev
+```
+
+Open:
+
+- `http://127.0.0.1:3000/`
 
 ## How To Test From Swagger
 
@@ -250,6 +272,7 @@ The app is:
 - graph-ready in `workflows/`
 - LLM-capable with graceful fallback
 - dashboard-endpoint ready
+- minimal-UI ready
 
 The app is not yet:
 

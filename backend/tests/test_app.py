@@ -1,4 +1,4 @@
-from backend.app.main import dashboard_report, query_documents, root
+from backend.app.main import app, dashboard_report, query_documents, root
 from backend.core.models import QueryRequest
 
 
@@ -41,3 +41,11 @@ def test_dashboard_report_endpoint():
     assert response.source_count > 0
     assert response.metrics
     assert response.actions
+
+
+def test_cors_allows_local_frontend_origin():
+    cors_middleware = app.user_middleware[0]
+
+    assert cors_middleware.cls.__name__ == "CORSMiddleware"
+    assert "http://localhost:3000" in cors_middleware.options["allow_origins"]
+    assert "http://127.0.0.1:3000" in cors_middleware.options["allow_origins"]

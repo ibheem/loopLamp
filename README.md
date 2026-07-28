@@ -70,6 +70,23 @@ pytest -q
 
 - `ARCHITECTURE.md` contains the current end-to-end app documentation, request flow, runtime modes, and testing guide.
 
+## Frontend
+
+The minimal Next.js dashboard lives in `frontend/`.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+By default it calls `http://127.0.0.1:8000/dashboard/report`.
+Override with:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+```
+
 ## Query example
 
 ```bash
