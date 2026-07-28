@@ -24,10 +24,10 @@ Only these parts should vary by domain:
 
 1. `telecom_security`
 2. `financial_risk`
+3. `medical_qa`
 
 ### Planned
 
-3. `medical_qa`
 4. `banking_assistant`
 5. `automotive`
 6. `manufacturing`
@@ -129,9 +129,10 @@ test_data/
     FInal_GFR_upto_31_07_2024.pdf
     master-circular.pdf
     SEBI Booklet.pdf
-  medical_qa/
-    medical_guidelines.pdf
-    symptom_qa.txt
+  healthcare/
+    GENERAL PRINCIPLES OF PHARMACOLOGY.pdf
+    Harrison_s Principles of Internal Medicine.pdf
+    HealthCareMagic-100k.json
   banking_assistant/
     transactions.csv
     service_charges.pdf
@@ -200,4 +201,4 @@ Suggested inputs:
 
 ## Next Recommended Implementation
 
-The next domain to implement should be `medical_qa`.
+The next domain to implement should be `banking_assistant`.

@@ -35,10 +35,11 @@ DOMAIN_CATALOG = {
         "label": "Medical Q&A",
         "pattern": "rag_documents",
         "priority": 3,
-        "status": "planned",
+        "status": "implemented",
         "sample_data": [
-            "test_data/medical_qa/medical_guidelines.pdf",
-            "test_data/medical_qa/symptom_qa.txt",
+            "test_data/healthcare/GENERAL PRINCIPLES OF PHARMACOLOGY.pdf",
+            "test_data/healthcare/Harrison_s Principles of Internal Medicine.pdf",
+            "test_data/healthcare/HealthCareMagic-100k.json",
         ],
         "use_cases": [
             "clinical question answering",

@@ -142,6 +142,7 @@ Currently implemented:
 
 - `telecom_security`
 - `financial_risk`
+- `medical_qa`
 
 ## Notes
 

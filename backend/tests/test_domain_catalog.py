@@ -26,3 +26,8 @@ def test_domain_catalog_marks_automotive_and_manufacturing_as_planned():
 def test_domain_catalog_marks_financial_risk_as_implemented():
     assert DOMAIN_CATALOG["financial_risk"]["status"] == "implemented"
     assert any("test_data/finance/" in item for item in DOMAIN_CATALOG["financial_risk"]["sample_data"])
+
+
+def test_domain_catalog_marks_medical_qa_as_implemented():
+    assert DOMAIN_CATALOG["medical_qa"]["status"] == "implemented"
+    assert any("test_data/healthcare/" in item for item in DOMAIN_CATALOG["medical_qa"]["sample_data"])

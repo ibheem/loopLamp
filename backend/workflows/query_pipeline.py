@@ -1,6 +1,7 @@
 import logging
 
 from backend.agents.financial_risk import FinancialRiskAgent
+from backend.agents.medical_qa import MedicalQAAgent
 from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.core.models import ExecutionMetadata, QueryRequest, QueryResponse, SourceDocument
@@ -21,6 +22,7 @@ class QueryPipeline:
         self.workflow = QueryGraphWorkflow(self.retrieval_service)
         telecom_fallback = TelecomSecurityAgent()
         finance_fallback = FinancialRiskAgent()
+        medical_fallback = MedicalQAAgent()
         telecom_agent = OpenAIReportAgent(
             provider=OpenAIResponsesReportProvider(),
             fallback_agent=telecom_fallback,
@@ -31,9 +33,15 @@ class QueryPipeline:
             fallback_agent=finance_fallback,
             domain_name="financial_risk",
         )
+        medical_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=medical_fallback,
+            domain_name="medical_qa",
+        )
         self.agents = {
             "telecom_security": telecom_agent,
             "financial_risk": finance_agent,
+            "medical_qa": medical_agent,
             "general": telecom_agent,
         }
 

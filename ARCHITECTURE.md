@@ -34,6 +34,7 @@ Currently implemented domains:
 
 - `telecom_security`
 - `financial_risk`
+- `medical_qa`
 
 ## Current Request Flow
 
