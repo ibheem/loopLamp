@@ -6,6 +6,7 @@ An agentic backend project for document ingestion, retrieval, and domain workflo
 
 - FastAPI backend entry point with `/query` orchestration in `backend/app/main.py`
 - Service layer for PDF, CSV, and text ingestion in `backend/services/document_ingestion.py`
+- LangChain-aware splitter and embedding adapters live only in `backend/services/`
 - Retrieval workflow with bounded reflection retries in `backend/workflows/query_pipeline.py`
 - First concrete domain agent in `backend/agents/telecom_security.py`
 - Structured `DomainReport` output contract for dashboard-ready domain responses
@@ -77,6 +78,7 @@ curl -X POST http://127.0.0.1:8000/query \
 ## Architecture direction
 
 - `backend/services/` contains ingestion, retrieval, and vector-store concerns.
+- `backend/services/` prefers LangChain splitters and embedding-backed retrieval when dependencies are available, then falls back to lightweight local behavior for development.
 - `backend/workflows/` contains orchestration and loop logic.
 - `backend/agents/` is reserved for true domain behavior rather than raw helper functions.
 - The current in-memory retrieval layer is the swap point for future LangChain retrievers, embeddings, and vector databases.

@@ -1,11 +1,19 @@
 import re
 import zlib
+import logging
 from pathlib import Path
 from typing import List
 
 import pandas as pd
 
 from backend.core.documents import Document
+
+logger = logging.getLogger(__name__)
+
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except Exception:  # pragma: no cover - exercised through fallback tests
+    RecursiveCharacterTextSplitter = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -23,7 +31,7 @@ def _resolve_input_path(path: str) -> Path:
     return candidate
 
 
-def _chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Document]:
+def _fallback_chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Document]:
     cleaned = " ".join(text.split())
     if not cleaned:
         return []
@@ -38,6 +46,25 @@ def _chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> 
         if end >= len(cleaned):
             break
         start = max(0, end - chunk_overlap)
+    return chunks
+
+
+def _chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Document]:
+    cleaned = " ".join(text.split())
+    if not cleaned:
+        return []
+
+    if RecursiveCharacterTextSplitter is not None:
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+        chunks = [Document(page_content=chunk) for chunk in splitter.split_text(cleaned) if chunk.strip()]
+        logger.info("document_chunking_strategy strategy=langchain chunks=%s", len(chunks))
+        return chunks
+
+    chunks = _fallback_chunk_text(cleaned, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    logger.info("document_chunking_strategy strategy=fallback chunks=%s", len(chunks))
     return chunks
 
 
