@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 from io import BytesIO
 
 from backend.app import main as main_module
@@ -59,7 +60,11 @@ def test_dashboard_report_endpoint():
 
 def test_query_endpoint_accepts_source_id():
     sources = list_sources().sources
-    telecom_source = next(source for source in sources if source.domain == "telecom_security")
+    telecom_source = next(
+        source
+        for source in sources
+        if source.domain == "telecom_security" and source.label == "telecom_incident.txt"
+    )
     response = query_documents(
         QueryRequest(
             query="What action is recommended for the SS7 issue?",
@@ -99,6 +104,33 @@ def test_upload_source_returns_record():
 
     assert response.source.origin == "upload"
     assert response.source.domain == "general"
+
+
+def test_upload_source_accepts_csv():
+    response = upload_source(
+        UploadSourceRequest(
+            filename="orders.csv",
+            domain="ecommerce",
+            content_base64=base64.b64encode(b"order_id,status\nEC-1,delayed\n").decode("utf-8"),
+        )
+    )
+
+    assert response.source.origin == "upload"
+    assert response.source.file_type == ".csv"
+
+
+def test_upload_source_accepts_json():
+    payload = json.dumps({"issue": "refund_requested", "order_id": "EC-1042"}).encode("utf-8")
+    response = upload_source(
+        UploadSourceRequest(
+            filename="issue.json",
+            domain="ecommerce",
+            content_base64=base64.b64encode(payload).decode("utf-8"),
+        )
+    )
+
+    assert response.source.origin == "upload"
+    assert response.source.file_type == ".json"
 
 
 def test_delete_source_returns_record(tmp_path, monkeypatch):

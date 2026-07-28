@@ -1,6 +1,7 @@
 import re
 import zlib
 import logging
+import json
 from pathlib import Path
 from typing import List
 
@@ -168,6 +169,64 @@ def csv_to_documents(df: pd.DataFrame, source: str) -> List[Document]:
     return documents
 
 
+def ingest_json(path: str):
+    json_path = _resolve_input_path(path)
+    if not json_path.exists():
+        raise FileNotFoundError(f"JSON not found: {path}")
+
+    with json_path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _json_value_to_text(value) -> str:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def json_to_documents(payload, source: str) -> List[Document]:
+    documents: List[Document] = []
+
+    if isinstance(payload, list):
+        for index, item in enumerate(payload):
+            if isinstance(item, dict):
+                content = "; ".join(f"{key}: {_json_value_to_text(value)}" for key, value in item.items())
+            else:
+                content = _json_value_to_text(item)
+            documents.append(
+                Document(
+                    page_content=content,
+                    metadata={"source": source, "row_index": index, "file_type": "json"},
+                )
+            )
+        return documents
+
+    if isinstance(payload, dict):
+        for index, (key, value) in enumerate(payload.items()):
+            if isinstance(value, dict):
+                content = "; ".join(
+                    [f"section: {key}"] + [f"{nested_key}: {_json_value_to_text(nested_value)}" for nested_key, nested_value in value.items()]
+                )
+            elif isinstance(value, list):
+                content = f"section: {key}; items: {_json_value_to_text(value)}"
+            else:
+                content = f"{key}: {_json_value_to_text(value)}"
+            documents.append(
+                Document(
+                    page_content=content,
+                    metadata={"source": source, "row_index": index, "file_type": "json"},
+                )
+            )
+        return documents
+
+    return [
+        Document(
+            page_content=_json_value_to_text(payload),
+            metadata={"source": source, "row_index": 0, "file_type": "json"},
+        )
+    ]
+
+
 def ingest_text(path: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Document]:
     text_path = _resolve_input_path(path)
     if not text_path.exists():
@@ -185,8 +244,14 @@ class DocumentIngestionService:
         if suffix == ".pdf":
             return ingest_pdf(path)
         if suffix == ".csv":
-            dataframe = ingest_csv(path)
+            try:
+                dataframe = ingest_csv(path)
+            except UnicodeDecodeError:
+                dataframe = pd.read_csv(_resolve_input_path(path), encoding="latin-1")
             return csv_to_documents(dataframe, source=path)
+        if suffix == ".json":
+            payload = ingest_json(path)
+            return json_to_documents(payload, source=path)
         if suffix in {".txt", ".md"}:
             return ingest_text(path)
         raise ValueError(f"Unsupported file type: {suffix}")

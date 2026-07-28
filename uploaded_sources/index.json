@@ -79,5 +79,59 @@
     "file_type": ".pdf",
     "origin": "upload",
     "uploaded_at": "2026-07-28T13:51:23.759764+00:00"
+  },
+  "upload:20260728150425_upload_note.txt": {
+    "source_id": "upload:20260728150425_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.122954+00:00"
+  },
+  "upload:20260728150425_orders.csv": {
+    "source_id": "upload:20260728150425_orders.csv",
+    "label": "orders.csv",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_orders.csv",
+    "file_type": ".csv",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.124137+00:00"
+  },
+  "upload:20260728150425_issue.json": {
+    "source_id": "upload:20260728150425_issue.json",
+    "label": "issue.json",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_issue.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.124818+00:00"
+  },
+  "upload:20260728150434_upload_note.txt": {
+    "source_id": "upload:20260728150434_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.870703+00:00"
+  },
+  "upload:20260728150434_orders.csv": {
+    "source_id": "upload:20260728150434_orders.csv",
+    "label": "orders.csv",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_orders.csv",
+    "file_type": ".csv",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.871385+00:00"
+  },
+  "upload:20260728150434_issue.json": {
+    "source_id": "upload:20260728150434_issue.json",
+    "label": "issue.json",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_issue.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.872008+00:00"
   }
 }

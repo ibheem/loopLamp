@@ -145,3 +145,7 @@ frontend/pnpm-debug.log*
 
 # Test Data
 test_data/
+
+# Runtime storage
+uploaded_sources/
+qdrant_storage/
