@@ -1,8 +1,10 @@
 import logging
 
+from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.core.models import QueryRequest, QueryResponse, SourceDocument
 from backend.services.document_ingestion import DocumentIngestionService
+from backend.services.llm_provider import OpenAIResponsesReportProvider
 from backend.services.retrieval import RetrievalService
 from backend.services.vector_store import build_vector_db
 from backend.workflows.query_graph import QueryGraphWorkflow
@@ -15,9 +17,14 @@ class QueryPipeline:
         self.ingestion_service = DocumentIngestionService()
         self.retrieval_service = RetrievalService()
         self.workflow = QueryGraphWorkflow(self.retrieval_service)
+        telecom_fallback = TelecomSecurityAgent()
+        openai_agent = OpenAIReportAgent(
+            provider=OpenAIResponsesReportProvider(),
+            fallback_agent=telecom_fallback,
+        )
         self.agents = {
-            "telecom_security": TelecomSecurityAgent(),
-            "general": TelecomSecurityAgent(),
+            "telecom_security": openai_agent,
+            "general": openai_agent,
         }
 
     def run(self, request: QueryRequest) -> QueryResponse:

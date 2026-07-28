@@ -10,9 +10,11 @@ An agentic backend project for document ingestion, retrieval, and domain workflo
 - Retrieval workflow with bounded reflection retries in `backend/workflows/query_pipeline.py`
 - Graph-capable orchestration lives in `backend/workflows/query_graph.py` and can use LangGraph when installed
 - First concrete domain agent in `backend/agents/telecom_security.py`
+- First true LLM-capable agent lives in `backend/agents/openai_report_agent.py`
 - Structured `DomainReport` output contract for dashboard-ready domain responses
 - Lightweight in-memory retrieval store so the scaffold works before heavyweight AI dependencies are installed
 - Pytest coverage for the API, ingestion flow, retrieval flow, CSV handling, and vector search behavior
+- Repo-level architecture and usage guide in `ARCHITECTURE.md`
 
 ## Project structure
 
@@ -63,6 +65,10 @@ source .venv/bin/activate
 pytest -q
 ```
 
+## Documentation
+
+- `ARCHITECTURE.md` contains the current end-to-end app documentation, request flow, runtime modes, and testing guide.
+
 ## Query example
 
 ```bash
@@ -83,6 +89,7 @@ curl -X POST http://127.0.0.1:8000/query \
 - `backend/workflows/` contains orchestration and loop logic.
 - `backend/workflows/` is now graph-ready: it uses a local fallback executor today and can switch to LangGraph without changing the API or report contract.
 - `backend/agents/` is reserved for true domain behavior rather than raw helper functions.
+- `backend/agents/openai_report_agent.py` uses an LLM provider when available and falls back to deterministic domain logic when local credentials are missing.
 - The current in-memory retrieval layer is the swap point for future LangChain retrievers, embeddings, and vector databases.
 - The next clean upgrade is replacing the in-memory retrieval service with LangChain or LangGraph-backed components while keeping the API and workflow contracts stable.
 

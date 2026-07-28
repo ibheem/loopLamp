@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DomainMetric(BaseModel):
@@ -36,10 +36,47 @@ class DomainReport(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=3)
-    document_path: str = Field(..., min_length=1)
-    domain: str = Field(default="telecom_security", min_length=1)
-    max_results: int = Field(default=3, ge=1, le=10)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "query": "What action is recommended for the SS7 issue?",
+                    "document_path": "test_data/telecom_incident.txt",
+                    "domain": "telecom_security",
+                    "max_results": 2,
+                },
+                {
+                    "query": "What governance control is required before export?",
+                    "document_path": "test_data/telecom_incident.txt",
+                    "domain": "telecom_security",
+                    "max_results": 3,
+                },
+                {
+                    "query": "What refund policy is mentioned?",
+                    "document_path": "test_data/ecommerce-full-100products.pdf",
+                    "domain": "telecom_security",
+                    "max_results": 3,
+                },
+            ]
+        }
+    )
+
+    query: str = Field(
+        ...,
+        min_length=3,
+        examples=["What action is recommended for the SS7 issue?"],
+    )
+    document_path: str = Field(
+        ...,
+        min_length=1,
+        examples=["test_data/telecom_incident.txt"],
+    )
+    domain: str = Field(
+        default="telecom_security",
+        min_length=1,
+        examples=["telecom_security"],
+    )
+    max_results: int = Field(default=3, ge=1, le=10, examples=[2])
 
 
 class SourceDocument(BaseModel):
@@ -54,3 +91,7 @@ class QueryResponse(BaseModel):
     used_reflection: bool
     report: DomainReport
     sources: List[SourceDocument]
+
+
+class ErrorResponse(BaseModel):
+    detail: str
