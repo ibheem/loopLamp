@@ -8,6 +8,7 @@ An agentic backend project for document ingestion, retrieval, and domain workflo
 - Service layer for PDF, CSV, and text ingestion in `backend/services/document_ingestion.py`
 - LangChain-aware splitter and embedding adapters live only in `backend/services/`
 - Retrieval workflow with bounded reflection retries in `backend/workflows/query_pipeline.py`
+- Graph-capable orchestration lives in `backend/workflows/query_graph.py` and can use LangGraph when installed
 - First concrete domain agent in `backend/agents/telecom_security.py`
 - Structured `DomainReport` output contract for dashboard-ready domain responses
 - Lightweight in-memory retrieval store so the scaffold works before heavyweight AI dependencies are installed
@@ -80,6 +81,7 @@ curl -X POST http://127.0.0.1:8000/query \
 - `backend/services/` contains ingestion, retrieval, and vector-store concerns.
 - `backend/services/` prefers LangChain splitters and embedding-backed retrieval when dependencies are available, then falls back to lightweight local behavior for development.
 - `backend/workflows/` contains orchestration and loop logic.
+- `backend/workflows/` is now graph-ready: it uses a local fallback executor today and can switch to LangGraph without changing the API or report contract.
 - `backend/agents/` is reserved for true domain behavior rather than raw helper functions.
 - The current in-memory retrieval layer is the swap point for future LangChain retrievers, embeddings, and vector databases.
 - The next clean upgrade is replacing the in-memory retrieval service with LangChain or LangGraph-backed components while keeping the API and workflow contracts stable.
