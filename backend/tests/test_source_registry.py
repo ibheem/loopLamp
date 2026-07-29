@@ -30,6 +30,49 @@ def test_source_registry_can_save_upload(tmp_path):
     assert service.resolve_source_path(record.source_id).exists()
 
 
+def test_source_registry_persists_upload_metadata_in_sqlite(tmp_path):
+    uploads_dir = tmp_path / "uploads"
+    index_path = uploads_dir / "index.json"
+    service = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+
+    record = service.save_upload(
+        filename="persisted_note.txt",
+        content=b"persisted source content",
+        domain="general",
+    )
+
+    reloaded = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+    records = reloaded.list_sources()
+
+    assert any(item.source_id == record.source_id for item in records)
+
+
+def test_source_registry_applies_persisted_index_state(tmp_path):
+    uploads_dir = tmp_path / "uploads"
+    index_path = uploads_dir / "index.json"
+    service = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+
+    record = service.save_upload(
+        filename="indexed_note.txt",
+        content=b"persisted source content",
+        domain="general",
+    )
+    service.set_source_index_state(
+        source_id=record.source_id,
+        index_status="indexed",
+        vector_backend="qdrant_persistent",
+        indexed_document_count=4,
+    )
+
+    reloaded = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+    indexed = next(item for item in reloaded.list_sources() if item.source_id == record.source_id)
+
+    assert indexed.index_status == "indexed"
+    assert indexed.vector_backend == "qdrant_persistent"
+    assert indexed.indexed_document_count == 4
+    assert indexed.indexed_at is not None
+
+
 def test_source_registry_can_delete_upload(tmp_path):
     uploads_dir = tmp_path / "uploads"
     index_path = uploads_dir / "index.json"
@@ -61,3 +104,28 @@ def test_source_registry_rejects_sample_deletion():
         assert str(exc) == "Only uploaded sources can be deleted."
     else:
         raise AssertionError("Expected sample source deletion to be rejected.")
+
+
+def test_source_registry_reconciles_stale_uploaded_metadata(tmp_path):
+    uploads_dir = tmp_path / "uploads"
+    index_path = uploads_dir / "index.json"
+    service = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+
+    record = service.save_upload(
+        filename="stale_note.txt",
+        content=b"stale source content",
+        domain="general",
+    )
+    stored_path = service.resolve_source_path(record.source_id)
+    stored_path.unlink()
+
+    reloaded = SourceRegistryService(project_root=tmp_path, uploads_dir=uploads_dir, index_path=index_path)
+    records = reloaded.list_sources()
+
+    assert all(item.source_id != record.source_id for item in records)
+    try:
+        reloaded.resolve_source_path(record.source_id)
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError("Expected stale upload metadata to be removed from the registry.")

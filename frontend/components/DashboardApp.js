@@ -6,8 +6,12 @@ import {
   defaultFormState,
   domainOptions,
   findSourceById,
+  formatQueryErrorMessage,
+  formatSourceIndexStatus,
+  formatUploadErrorMessage,
   formatSourceLabel,
   getPreferredSourceId,
+  getSourceIndexTone,
   getStatusTone,
   groupSourcesByDomain,
 } from "../lib/dashboard";
@@ -22,6 +26,7 @@ export default function DashboardApp() {
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
   const [error, setError] = useState("");
 
   const statusTone = useMemo(
@@ -117,7 +122,7 @@ export default function DashboardApp() {
       setDashboard(payload);
     } catch (submitError) {
       setDashboard(null);
-      setError(submitError.message);
+      setError(formatQueryErrorMessage(submitError.message));
     } finally {
       setLoading(false);
     }
@@ -183,7 +188,7 @@ export default function DashboardApp() {
         sourceId: payload.source.source_id,
       }));
     } catch (uploadError) {
-      setError(uploadError.message);
+      setError(formatUploadErrorMessage(uploadError.message));
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -218,6 +223,30 @@ export default function DashboardApp() {
       setError(deleteError.message);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleReindexSource() {
+    if (!selectedSource) {
+      return;
+    }
+
+    setReindexing(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/sources/${encodeURIComponent(selectedSource.source_id)}/reindex`,
+        { method: "POST" }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || "Reindex failed.");
+      }
+      await loadSources();
+    } catch (reindexError) {
+      setError(formatQueryErrorMessage(reindexError.message));
+    } finally {
+      setReindexing(false);
     }
   }
 
@@ -289,6 +318,9 @@ export default function DashboardApp() {
           <label>
             <span>Upload New Source</span>
             <input type="file" accept=".txt,.md,.pdf,.csv,.json" onChange={handleUpload} />
+            <small className="field-hint">
+              Accepted: `.txt`, `.md`, `.pdf`, `.csv`, `.json`. If a file is actually a ZIP/archive, the upload will be rejected with a clear message.
+            </small>
           </label>
           <button className="primary-button" disabled={loading} type="submit">
             {loading ? "Generating..." : "Generate Dashboard"}
@@ -309,13 +341,35 @@ export default function DashboardApp() {
           >
             {deleting ? "Deleting..." : "Delete Uploaded Source"}
           </button>
+          <button
+            className="secondary-button"
+            disabled={!selectedSource || reindexing || loading || uploading}
+            type="button"
+            onClick={handleReindexSource}
+          >
+            {reindexing ? "Reindexing..." : "Reindex Source"}
+          </button>
         </form>
         {selectedSource ? (
-          <p className="hero-label">
-            Selected source: {selectedSource.label} · {selectedSource.domain} · {selectedSource.origin}
-          </p>
+          <div className="source-meta">
+            <p className="hero-label">
+              Selected source: {selectedSource.label} · {selectedSource.domain} · {selectedSource.origin}
+            </p>
+            <div className="source-meta-row">
+              <span className={`status-pill source-status-pill ${getSourceIndexTone(selectedSource.index_status)}`}>
+                {formatSourceIndexStatus(selectedSource.index_status)}
+              </span>
+              {selectedSource.vector_backend ? (
+                <span className="hero-label">Backend: {selectedSource.vector_backend}</span>
+              ) : null}
+              {selectedSource.indexed_document_count !== null && selectedSource.indexed_document_count !== undefined ? (
+                <span className="hero-label">Chunks: {selectedSource.indexed_document_count}</span>
+              ) : null}
+            </div>
+          </div>
         ) : null}
         {uploading ? <p className="hero-label">Uploading source...</p> : null}
+        {reindexing ? <p className="hero-label">Refreshing vector index for the selected source...</p> : null}
         {error ? <p className="error-banner">{error}</p> : null}
       </section>
 

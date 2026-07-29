@@ -375,6 +375,10 @@ class SourceRecord(BaseModel):
                 "file_type": ".txt",
                 "origin": "sample",
                 "uploaded_at": None,
+                "index_status": "not_indexed",
+                "indexed_at": None,
+                "vector_backend": "",
+                "indexed_document_count": None,
             }
         }
     )
@@ -386,6 +390,10 @@ class SourceRecord(BaseModel):
     file_type: str
     origin: str
     uploaded_at: Optional[str] = None
+    index_status: str = "not_indexed"
+    indexed_at: Optional[str] = None
+    vector_backend: str = ""
+    indexed_document_count: Optional[int] = None
 
 
 class SourceListResponse(BaseModel):
@@ -401,6 +409,10 @@ class SourceListResponse(BaseModel):
                         "file_type": ".txt",
                         "origin": "sample",
                         "uploaded_at": None,
+                        "index_status": "indexed",
+                        "indexed_at": "2026-07-29T08:30:00+00:00",
+                        "vector_backend": "qdrant_persistent",
+                        "indexed_document_count": 2,
                     },
                     {
                         "source_id": "upload:20260728061500_field_notes.txt",
@@ -410,6 +422,10 @@ class SourceListResponse(BaseModel):
                         "file_type": ".txt",
                         "origin": "upload",
                         "uploaded_at": "2026-07-28T06:15:00+00:00",
+                        "index_status": "not_indexed",
+                        "indexed_at": None,
+                        "vector_backend": "",
+                        "indexed_document_count": None,
                     },
                 ]
             }
@@ -431,6 +447,10 @@ class UploadSourceResponse(BaseModel):
                     "file_type": ".txt",
                     "origin": "upload",
                     "uploaded_at": "2026-07-28T06:15:00+00:00",
+                    "index_status": "not_indexed",
+                    "indexed_at": None,
+                    "vector_backend": "",
+                    "indexed_document_count": None,
                 }
             }
         }
@@ -451,6 +471,24 @@ class DeleteSourceResponse(BaseModel):
 
     source_id: str
     deleted: bool = True
+
+
+class ReindexSourceResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "source_id": "sample:ecommerce:return_policy.md",
+                "indexed": True,
+                "document_count": 4,
+                "vector_backend": "qdrant_persistent",
+            }
+        }
+    )
+
+    source_id: str
+    indexed: bool = True
+    document_count: int
+    vector_backend: str
 
 
 class UploadSourceRequest(BaseModel):

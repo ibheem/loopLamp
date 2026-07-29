@@ -127,6 +127,29 @@ export OPENAI_API_KEY="your-key-here"
 uvicorn backend.app.main:app --reload
 ```
 
+#### `LOOPLAMP_STARTUP_SOURCE_SYNC`
+
+Optional.
+
+Controls whether the backend walks all saved sources at startup and ensures their vector collections exist.
+
+Default:
+
+```text
+false
+```
+
+If enabled:
+
+- sample and uploaded sources are checked on backend boot
+- existing matching Qdrant collections are reused
+- missing or outdated collections are rebuilt automatically
+
+If disabled:
+
+- source indexing happens lazily on first query or manual reindex
+- backend startup stays fast even when large PDFs or many uploads exist
+
 ### Frontend
 
 #### `NEXT_PUBLIC_API_BASE_URL`
@@ -160,14 +183,16 @@ These folders matter at runtime:
 
 - `test_data/` for bundled sample sources
 - `uploaded_sources/` for files uploaded through the API
+- `qdrant_storage/` for persistent local vector collections
 
 Important behavior:
 
 - uploaded files are persisted on local disk
-- uploaded source metadata is stored in `uploaded_sources/index.json`
+- uploaded source metadata is stored in SQLite under the upload storage area
 - deleting `uploaded_sources/` removes uploaded source state
 
 In the Docker setup, this is already mounted as a named volume called `uploaded_sources`.
+Persistent vector collections are mounted as a named volume called `qdrant_storage`.
 
 If you want uploads to survive deployment replacement in a real server environment, keep this path on persistent storage.
 
@@ -208,6 +233,7 @@ The included container setup is intentionally small and practical:
 - backend and frontend are clearly separated
 - API URL is configurable from the frontend
 - source uploads are isolated to one directory
+- vector collections are isolated to one directory
 - FastAPI app entrypoint is explicit
 - Next.js app entrypoint is explicit
 
@@ -232,6 +258,7 @@ The current split is:
 - installs `requirements.txt`
 - runs `uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`
 - mounts `uploaded_sources/` as a writable volume
+- mounts `qdrant_storage/` as a writable volume
 - optionally mounts `test_data/` as read-only
 
 ### Frontend container
@@ -248,6 +275,7 @@ The current split is:
 - `backend`
 - `frontend`
 - named volume for `uploaded_sources`
+- named volume for `qdrant_storage`
 
 ## Known limitations today
 

@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 
 from backend.agents.automotive import AutomotiveAgent
 from backend.agents.banking_assistant import BankingAssistantAgent
@@ -90,7 +91,14 @@ class QueryPipeline:
             source_path = str(self.source_registry.resolve_source_path(request.source_id))
 
         documents = self.ingestion_service.ingest(source_path)
-        vector_db = build_vector_db(documents)
+        vector_db = build_vector_db(documents, collection_key=request.source_id or source_path or request.domain)
+        if request.source_id:
+            self.source_registry.set_source_index_state(
+                source_id=request.source_id,
+                index_status="indexed",
+                vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
+                indexed_document_count=len(documents),
+            )
 
         execution = self.workflow.run(agent, vector_db, request)
         evaluation = evaluate_report(execution.answer)
@@ -127,3 +135,58 @@ class QueryPipeline:
                 for document in execution.sources
             ],
         )
+
+    def reindex_source(self, source_id: str) -> dict:
+        source_path = str(self.source_registry.resolve_source_path(source_id))
+        documents = self.ingestion_service.ingest(source_path)
+        vector_db = build_vector_db(documents, collection_key=source_id, force_reindex=True)
+        self.source_registry.set_source_index_state(
+            source_id=source_id,
+            index_status="indexed",
+            vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
+            indexed_document_count=len(documents),
+        )
+        return {
+            "source_id": source_id,
+            "indexed": True,
+            "document_count": len(documents),
+            "vector_backend": getattr(vector_db, "backend_name", vector_db.__class__.__name__),
+        }
+
+    def sync_saved_sources(self) -> Dict[str, int]:
+        indexed_count = 0
+        failed_count = 0
+
+        for source in self.source_registry.list_indexable_sources():
+            try:
+                documents = self.ingestion_service.ingest(source.path)
+                vector_db = build_vector_db(documents, collection_key=source.source_id)
+                self.source_registry.set_source_index_state(
+                    source_id=source.source_id,
+                    index_status="indexed",
+                    vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
+                    indexed_document_count=len(documents),
+                )
+                indexed_count += 1
+            except Exception as exc:
+                self.source_registry.set_source_index_state(
+                    source_id=source.source_id,
+                    index_status="failed",
+                )
+                failed_count += 1
+                logger.warning(
+                    "startup_source_sync_failed source_id=%s path=%s error=%s",
+                    source.source_id,
+                    source.path,
+                    exc,
+                )
+
+        logger.info(
+            "startup_source_sync_complete indexed=%s failed=%s",
+            indexed_count,
+            failed_count,
+        )
+        return {
+            "indexed_count": indexed_count,
+            "failed_count": failed_count,
+        }

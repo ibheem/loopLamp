@@ -1,5 +1,8 @@
 from base64 import b64decode
+from io import BytesIO
+import os
 from pathlib import Path
+import zipfile
 
 from fastapi import FastAPI, HTTPException, Path as ApiPath
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +13,7 @@ from backend.core.models import (
     ErrorResponse,
     QueryRequest,
     QueryResponse,
+    ReindexSourceResponse,
     SourceListResponse,
     UploadSourceRequest,
     UploadSourceResponse,
@@ -46,6 +50,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def run_startup_source_sync():
+    startup_sync_enabled = os.getenv("LOOPLAMP_STARTUP_SOURCE_SYNC", "false").strip().lower()
+    if startup_sync_enabled in {"0", "false", "no", "off"}:
+        return {"indexed_count": 0, "failed_count": 0, "skipped": True}
+    return pipeline.sync_saved_sources()
+
+
+def validate_upload_content(filename: str, content: bytes):
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".txt", ".md", ".pdf", ".csv", ".json"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+
+    if suffix in {".txt", ".md", ".csv", ".json"} and zipfile.is_zipfile(BytesIO(content)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Uploaded file content does not match {suffix} and appears to be a ZIP archive.",
+        )
+
+
+@app.on_event("startup")
+def startup_source_sync():
+    run_startup_source_sync()
+
 
 @app.get(
     "/",
@@ -114,12 +143,43 @@ def delete_source(
     },
 )
 def upload_source(request: UploadSourceRequest):
-    suffix = Path(request.filename).suffix.lower()
-    if suffix not in {".txt", ".md", ".pdf", ".csv", ".json"}:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
     content = b64decode(request.content_base64.encode("utf-8"))
+    validate_upload_content(request.filename, content)
     record = source_registry.save_upload(filename=request.filename, content=content, domain=request.domain)
     return UploadSourceResponse(source=record)
+
+
+@app.post(
+    "/sources/{source_id:path}/reindex",
+    response_model=ReindexSourceResponse,
+    summary="Reindex a saved source into persistent vector storage",
+    description="Rebuilds the vector index for a saved source using the active vector backend. When Qdrant is available, this refreshes the persistent collection.",
+    tags=["Sources"],
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Source could not be ingested or indexed.",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Source was not found.",
+        },
+    },
+)
+def reindex_source(
+    source_id: str = ApiPath(
+        ...,
+        description="Sample or uploaded source identifier returned by `/sources`.",
+        examples=["sample:ecommerce:return_policy.md"],
+    )
+):
+    try:
+        result = pipeline.reindex_source(source_id)
+        return ReindexSourceResponse(**result)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post(

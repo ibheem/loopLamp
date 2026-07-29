@@ -14,7 +14,7 @@ COPY backend ./backend
 COPY test_data ./test_data
 COPY README.md API_USAGE.md ARCHITECTURE.md DEPLOYMENT.md ./
 
-RUN mkdir -p /app/uploaded_sources
+RUN mkdir -p /app/uploaded_sources /app/qdrant_storage
 
 EXPOSE 8000
 
