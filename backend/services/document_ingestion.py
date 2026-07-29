@@ -174,8 +174,17 @@ def ingest_json(path: str):
     if not json_path.exists():
         raise FileNotFoundError(f"JSON not found: {path}")
 
-    with json_path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    raw = json_path.read_bytes()
+    decode_error = None
+    for encoding in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return json.loads(raw.decode(encoding))
+        except UnicodeDecodeError as exc:
+            decode_error = exc
+            continue
+    if decode_error is not None:
+        raise decode_error
+    return json.loads(raw.decode("utf-8"))
 
 
 def _json_value_to_text(value) -> str:

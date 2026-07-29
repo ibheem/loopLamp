@@ -7,8 +7,11 @@ services:
       - "8000:8000"
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      QDRANT_STORAGE_PATH: /app/qdrant_storage
+      LOOPLAMP_STARTUP_SOURCE_SYNC: ${LOOPLAMP_STARTUP_SOURCE_SYNC:-false}
     volumes:
       - uploaded_sources:/app/uploaded_sources
+      - qdrant_storage:/app/qdrant_storage
 
   frontend:
     build:
@@ -25,3 +28,4 @@ services:
 
 volumes:
   uploaded_sources:
+  qdrant_storage:

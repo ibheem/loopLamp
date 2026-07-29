@@ -5,7 +5,11 @@ import {
   defaultFormState,
   filterSourcesByDomain,
   findSourceById,
+  formatQueryErrorMessage,
+  formatSourceIndexStatus,
+  formatUploadErrorMessage,
   formatSourceLabel,
+  getSourceIndexTone,
   getPreferredSourceId,
   getStatusTone,
   groupSourcesByDomain,
@@ -86,4 +90,51 @@ test("getPreferredSourceId falls back to selected domain", () => {
   );
 
   assert.equal(sourceId, "finance-1");
+});
+
+test("formatUploadErrorMessage explains zip-disguised files clearly", () => {
+  const message = formatUploadErrorMessage(
+    "Uploaded file content does not match .json and appears to be a ZIP archive."
+  );
+
+  assert.match(message, /actually a ZIP archive/i);
+  assert.match(message, /extract it first|upload the real file/i);
+});
+
+test("formatUploadErrorMessage explains unsupported file types clearly", () => {
+  const message = formatUploadErrorMessage("Unsupported file type: .docx");
+
+  assert.match(message, /TXT, MD, PDF, CSV, and JSON/i);
+});
+
+test("formatQueryErrorMessage explains missing source selection clearly", () => {
+  const message = formatQueryErrorMessage("Unknown source_id: upload:old-file.json");
+
+  assert.match(message, /selected source no longer exists/i);
+  assert.match(message, /refresh sources/i);
+});
+
+test("formatQueryErrorMessage explains missing source file clearly", () => {
+  const message = formatQueryErrorMessage("JSON not found: uploaded_sources/missing.json");
+
+  assert.match(message, /source file could not be found/i);
+  assert.match(message, /re-upload/i);
+});
+
+test("formatQueryErrorMessage explains unsupported domain clearly", () => {
+  const message = formatQueryErrorMessage("Unsupported domain 'foo'. Supported domains: telecom_security");
+
+  assert.match(message, /domain is not supported/i);
+});
+
+test("formatSourceIndexStatus maps source index states clearly", () => {
+  assert.equal(formatSourceIndexStatus("indexed"), "Indexed");
+  assert.equal(formatSourceIndexStatus("failed"), "Index failed");
+  assert.equal(formatSourceIndexStatus("not_indexed"), "Not indexed");
+});
+
+test("getSourceIndexTone maps source index states to pill styles", () => {
+  assert.equal(getSourceIndexTone("indexed"), "pill-success");
+  assert.equal(getSourceIndexTone("failed"), "pill-danger");
+  assert.equal(getSourceIndexTone("not_indexed"), "pill-info");
 });

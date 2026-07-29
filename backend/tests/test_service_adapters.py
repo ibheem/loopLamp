@@ -5,6 +5,8 @@ from backend.services import document_ingestion, vector_store
 def test_build_vector_db_uses_fallback_store_when_langchain_backend_unavailable(monkeypatch):
     documents = [Document(page_content="refund policy applies to returns")]
 
+    monkeypatch.setattr(vector_store, "_build_qdrant_vector_store", lambda chunks, collection_key="", storage_dir=None: None)
+    monkeypatch.setattr(vector_store, "_build_qdrant_reindex_store", lambda chunks, collection_key="", storage_dir=None: None)
     monkeypatch.setattr(vector_store, "_build_langchain_vector_store", lambda chunks: None)
 
     store = vector_store.build_vector_db(documents)
@@ -20,9 +22,43 @@ def test_build_vector_db_uses_langchain_store_when_available(monkeypatch):
             return documents[:k]
 
     fake_store = FakeStore()
+    monkeypatch.setattr(vector_store, "_build_qdrant_vector_store", lambda chunks, collection_key="", storage_dir=None: None)
+    monkeypatch.setattr(vector_store, "_build_qdrant_reindex_store", lambda chunks, collection_key="", storage_dir=None: None)
     monkeypatch.setattr(vector_store, "_build_langchain_vector_store", lambda chunks: fake_store)
 
     store = vector_store.build_vector_db(documents)
+
+    assert store is fake_store
+
+
+def test_build_vector_db_prefers_qdrant_store_when_available(monkeypatch):
+    documents = [Document(page_content="refund policy applies to returns")]
+
+    class FakeStore:
+        def similarity_search(self, query: str, k: int = 5):
+            return documents[:k]
+
+    fake_store = FakeStore()
+    monkeypatch.setattr(vector_store, "_build_qdrant_vector_store", lambda chunks, collection_key="", storage_dir=None: fake_store)
+
+    store = vector_store.build_vector_db(documents, collection_key="sample:ecommerce:return_policy.md")
+
+    assert store is fake_store
+
+
+def test_build_vector_db_uses_qdrant_reindex_store_when_forced(monkeypatch):
+    documents = [Document(page_content="refund policy applies to returns")]
+
+    class FakeStore:
+        backend_name = "qdrant_persistent"
+
+        def similarity_search(self, query: str, k: int = 5):
+            return documents[:k]
+
+    fake_store = FakeStore()
+    monkeypatch.setattr(vector_store, "_build_qdrant_reindex_store", lambda chunks, collection_key="", storage_dir=None: fake_store)
+
+    store = vector_store.build_vector_db(documents, collection_key="sample:ecommerce:return_policy.md", force_reindex=True)
 
     assert store is fake_store
 

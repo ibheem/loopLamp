@@ -177,9 +177,34 @@ code {
   opacity: 0.6;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 8px;
+  color: rgba(16, 35, 29, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .error-banner {
   margin: 18px 0 0;
   color: var(--danger);
+}
+
+.source-meta {
+  margin-top: 18px;
+}
+
+.source-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.source-status-pill {
+  min-width: auto;
+  padding: 6px 12px;
+  font-size: 0.82rem;
 }
 
 .results {
@@ -207,6 +232,11 @@ code {
 .pill-warning {
   background: rgba(180, 83, 9, 0.14);
   color: var(--warning);
+}
+
+.pill-danger {
+  background: rgba(185, 28, 28, 0.12);
+  color: var(--danger);
 }
 
 .pill-info {

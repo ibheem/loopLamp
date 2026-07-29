@@ -42,3 +42,15 @@ def test_document_ingestion_service_reads_json_list(tmp_path):
     assert len(documents) == 2
     assert documents[1].metadata["file_type"] == "json"
     assert "sku: SKU-2" in documents[1].page_content
+
+
+def test_document_ingestion_service_reads_cp1252_json(tmp_path):
+    json_path = tmp_path / "legacy_issue.json"
+    payload = '{"note": "Refund™ requested", "order_id": "EC-2001"}'.encode("cp1252")
+    json_path.write_bytes(payload)
+
+    documents = DocumentIngestionService().ingest(str(json_path))
+
+    assert documents
+    assert documents[0].metadata["file_type"] == "json"
+    assert "Refund™ requested" in documents[0].page_content
