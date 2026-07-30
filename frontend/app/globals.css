@@ -260,6 +260,19 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.note-card p {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
 .metric-card,
 .note-card {
   padding: 16px;

@@ -14,6 +14,7 @@ import {
   getSourceIndexTone,
   getStatusTone,
   groupSourcesByDomain,
+  retrievalModeOptions,
 } from "../lib/dashboard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -108,7 +109,8 @@ export default function DashboardApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: formState.query,
-          source_id: formState.sourceId,
+          retrieval_mode: formState.retrievalMode,
+          source_id: formState.retrievalMode === "source" ? formState.sourceId : null,
           domain: formState.domain,
           max_results: Number(formState.maxResults),
         }),
@@ -278,6 +280,16 @@ export default function DashboardApp() {
             />
           </label>
           <label>
+            <span>Search Scope</span>
+            <select value={formState.retrievalMode} onChange={updateField("retrievalMode")}>
+              {retrievalModeOptions.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             <span>Saved Source</span>
             <select value={formState.sourceId} onChange={handleSourceChange}>
               {groupedSources.length ? (
@@ -354,6 +366,9 @@ export default function DashboardApp() {
           <div className="source-meta">
             <p className="hero-label">
               Selected source: {selectedSource.label} · {selectedSource.domain} · {selectedSource.origin}
+            </p>
+            <p className="hero-label">
+              Search scope: {formState.retrievalMode === "domain" ? "all saved sources in this domain" : "selected source only"}
             </p>
             <div className="source-meta-row">
               <span className={`status-pill source-status-pill ${getSourceIndexTone(selectedSource.index_status)}`}>
@@ -453,6 +468,50 @@ export default function DashboardApp() {
               </dl>
             </article>
           </div>
+
+          <section className="panel">
+            <h3>Matched Sources</h3>
+            <div className="stack">
+              {dashboard.matched_sources.length ? (
+                dashboard.matched_sources.map((source) => (
+                  <div className="note-card" key={`${source.source_id || source.source}-${source.evidence_count}`}>
+                    <div className="note-header">
+                      <strong>{source.source.split("/").pop()}</strong>
+                      <span className="hero-label">{source.evidence_count} evidence hit(s)</span>
+                    </div>
+                    <p>{source.preview || "No preview available."}</p>
+                    <p className="hero-label">
+                      {source.domain || "unknown"} · {source.origin || "unknown"} · {source.file_type || "n/a"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No matched source summaries available.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Evidence Cards</h3>
+            <div className="stack">
+              {dashboard.evidence_cards.length ? (
+                dashboard.evidence_cards.map((card, index) => (
+                  <div className="note-card" key={`${card.source_id || card.source}-${index}`}>
+                    <div className="note-header">
+                      <strong>{card.title}</strong>
+                      <span className={`severity severity-${card.severity}`}>{card.severity}</span>
+                    </div>
+                    <p>{card.detail}</p>
+                    <p className="hero-label">
+                      {card.source.split("/").pop()} · {card.evidence_count} evidence unit(s)
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No evidence cards available.</p>
+              )}
+            </div>
+          </section>
 
           <section className="panel">
             <h3>Warnings</h3>

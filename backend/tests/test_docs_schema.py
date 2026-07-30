@@ -81,3 +81,5 @@ def test_openapi_dashboard_endpoint_includes_examples():
     assert "Automotive Dashboard Report" in serialized
     assert "Manufacturing Dashboard Report" in serialized
     assert "Ecommerce Dashboard Report" in serialized
+    assert "matched_sources" in serialized
+    assert "evidence_cards" in serialized

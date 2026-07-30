@@ -35,6 +35,15 @@ class SourceRegistryService:
     def list_indexable_sources(self) -> List[SourceRecord]:
         return self.list_sources()
 
+    def list_sources_for_domain(self, domain: str, include_general: bool = True) -> List[SourceRecord]:
+        records = self.list_sources()
+        if domain == "general":
+            return [record for record in records if record.domain == "general"]
+        allowed_domains = {domain}
+        if include_general:
+            allowed_domains.add("general")
+        return [record for record in records if record.domain in allowed_domains]
+
     def resolve_source_path(self, source_id: str) -> Path:
         for record in self.list_sources():
             if record.source_id == source_id:
