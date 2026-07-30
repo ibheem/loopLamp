@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from backend.agents.automotive import AutomotiveAgent
 from backend.agents.banking_assistant import BankingAssistantAgent
@@ -10,6 +10,7 @@ from backend.agents.medical_qa import MedicalQAAgent
 from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.core.models import ExecutionMetadata, QueryRequest, QueryResponse, SourceDocument
+from backend.core.documents import Document
 from backend.services.document_ingestion import DocumentIngestionService
 from backend.services.llm_provider import OpenAIResponsesReportProvider
 from backend.services.report_evaluator import evaluate_report
@@ -86,19 +87,23 @@ class QueryPipeline:
             supported = ", ".join(sorted(self.agents))
             raise ValueError(f"Unsupported domain '{request.domain}'. Supported domains: {supported}")
 
-        source_path = request.document_path
-        if request.source_id:
-            source_path = str(self.source_registry.resolve_source_path(request.source_id))
-
-        documents = self.ingestion_service.ingest(source_path)
-        vector_db = build_vector_db(documents, collection_key=request.source_id or source_path or request.domain)
-        if request.source_id:
+        documents, collection_key, domain_source_counts = self._resolve_request_documents(request)
+        vector_db = build_vector_db(documents, collection_key=collection_key)
+        if request.retrieval_mode == "source" and request.source_id:
             self.source_registry.set_source_index_state(
                 source_id=request.source_id,
                 index_status="indexed",
                 vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
                 indexed_document_count=len(documents),
             )
+        if request.retrieval_mode == "domain":
+            for source_id, document_count in domain_source_counts.items():
+                self.source_registry.set_source_index_state(
+                    source_id=source_id,
+                    index_status="indexed",
+                    vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
+                    indexed_document_count=document_count,
+                )
 
         execution = self.workflow.run(agent, vector_db, request)
         evaluation = evaluate_report(execution.answer)
@@ -135,6 +140,63 @@ class QueryPipeline:
                 for document in execution.sources
             ],
         )
+
+    def _resolve_request_documents(self, request: QueryRequest) -> Tuple[List[Document], str, Dict[str, int]]:
+        if request.retrieval_mode == "domain":
+            documents, source_counts = self._load_domain_documents(request.domain)
+            return documents, f"domain:{request.domain}:all_sources", source_counts
+
+        source_path = request.document_path
+        if request.source_id:
+            source_path = str(self.source_registry.resolve_source_path(request.source_id))
+        documents = self.ingestion_service.ingest(source_path)
+        return documents, request.source_id or source_path or request.domain, {}
+
+    def _load_domain_documents(self, domain: str) -> Tuple[List[Document], Dict[str, int]]:
+        sources = self.source_registry.list_sources_for_domain(domain)
+        if not sources:
+            raise ValueError(f"No saved sources are available for domain '{domain}'.")
+
+        combined_documents: List[Document] = []
+        source_counts: Dict[str, int] = {}
+        indexed_source_count = 0
+        for source in sources:
+            try:
+                documents = self.ingestion_service.ingest(source.path)
+                for document in documents:
+                    document.metadata.update(
+                        {
+                            "source_id": source.source_id,
+                            "source_domain": source.domain,
+                            "source_origin": source.origin,
+                        }
+                    )
+                combined_documents.extend(documents)
+                source_counts[source.source_id] = len(documents)
+                indexed_source_count += 1
+            except Exception as exc:
+                self.source_registry.set_source_index_state(
+                    source_id=source.source_id,
+                    index_status="failed",
+                )
+                logger.warning(
+                    "domain_source_ingest_failed domain=%s source_id=%s path=%s error=%s",
+                    domain,
+                    source.source_id,
+                    source.path,
+                    exc,
+                )
+
+        if not combined_documents:
+            raise ValueError(f"No readable sources were found for domain '{domain}'.")
+
+        logger.info(
+            "domain_corpus_built domain=%s sources=%s documents=%s",
+            domain,
+            indexed_source_count,
+            len(combined_documents),
+        )
+        return combined_documents, source_counts
 
     def reindex_source(self, source_id: str) -> dict:
         source_path = str(self.source_registry.resolve_source_path(source_id))

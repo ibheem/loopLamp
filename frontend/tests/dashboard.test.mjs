@@ -13,11 +13,20 @@ import {
   getPreferredSourceId,
   getStatusTone,
   groupSourcesByDomain,
+  retrievalModeOptions,
 } from "../lib/dashboard.js";
 
 test("default form state starts with telecom domain", () => {
   assert.equal(defaultFormState.domain, "telecom_security");
   assert.equal(defaultFormState.sourceId, "");
+  assert.equal(defaultFormState.retrievalMode, "domain");
+});
+
+test("retrieval mode options expose domain and source modes", () => {
+  assert.deepEqual(
+    retrievalModeOptions.map((mode) => mode.value),
+    ["domain", "source"]
+  );
 });
 
 test("status tone maps dashboard levels", () => {
@@ -127,6 +136,12 @@ test("formatQueryErrorMessage explains unsupported domain clearly", () => {
   assert.match(message, /domain is not supported/i);
 });
 
+test("formatQueryErrorMessage explains missing domain sources clearly", () => {
+  const message = formatQueryErrorMessage("No saved sources are available for domain 'medical_qa'.");
+
+  assert.match(message, /no saved sources yet for this domain/i);
+});
+
 test("formatSourceIndexStatus maps source index states clearly", () => {
   assert.equal(formatSourceIndexStatus("indexed"), "Indexed");
   assert.equal(formatSourceIndexStatus("failed"), "Index failed");
@@ -137,4 +152,33 @@ test("getSourceIndexTone maps source index states to pill styles", () => {
   assert.equal(getSourceIndexTone("indexed"), "pill-success");
   assert.equal(getSourceIndexTone("failed"), "pill-danger");
   assert.equal(getSourceIndexTone("not_indexed"), "pill-info");
+});
+
+test("matched source style inputs can be rendered from dashboard payload shape", () => {
+  const payload = {
+    matched_sources: [
+      {
+        source: "test_data/telecom_incident.txt",
+        source_id: "sample:telecom_security:telecom_incident.txt",
+        domain: "telecom_security",
+        origin: "sample",
+        evidence_count: 2,
+        file_type: "text",
+        preview: "SS7 routing instability observed.",
+      },
+    ],
+    evidence_cards: [
+      {
+        title: "SS7 routing evidence",
+        detail: "Routing instability was observed on the roaming edge.",
+        source: "test_data/telecom_incident.txt",
+        source_id: "sample:telecom_security:telecom_incident.txt",
+        evidence_count: 1,
+        severity: "high",
+      },
+    ],
+  };
+
+  assert.equal(payload.matched_sources[0].evidence_count, 2);
+  assert.equal(payload.evidence_cards[0].severity, "high");
 });

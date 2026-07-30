@@ -72,6 +72,25 @@ class DashboardStatus(BaseModel):
     issues: List[str] = Field(default_factory=list)
 
 
+class DashboardMatchedSource(BaseModel):
+    source: str
+    source_id: str = ""
+    domain: str = ""
+    origin: str = ""
+    evidence_count: int = 0
+    file_type: str = ""
+    preview: str = ""
+
+
+class DashboardEvidenceCard(BaseModel):
+    title: str
+    detail: str
+    source: str
+    source_id: str = ""
+    evidence_count: int = 0
+    severity: str = "info"
+
+
 class DashboardResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -100,6 +119,27 @@ class DashboardResponse(BaseModel):
                     "actions": [
                         {"priority": 1, "action": "Enable interconnect screening rules and validate with roaming test traffic."},
                         {"priority": 2, "action": "Assign telecom security operations as the mitigation owner for weekly review."},
+                    ],
+                    "matched_sources": [
+                        {
+                            "source": "test_data/telecom_incident.txt",
+                            "source_id": "sample:telecom_security:telecom_incident.txt",
+                            "domain": "telecom_security",
+                            "origin": "sample",
+                            "evidence_count": 2,
+                            "file_type": "text",
+                            "preview": "SS7 routing instability and authentication disruption were observed on the roaming edge.",
+                        }
+                    ],
+                    "evidence_cards": [
+                        {
+                            "title": "SS7 routing evidence",
+                            "detail": "The retrieved context points to SS7 routing instability impacting customer authentication flows.",
+                            "source": "test_data/telecom_incident.txt",
+                            "source_id": "sample:telecom_security:telecom_incident.txt",
+                            "evidence_count": 2,
+                            "severity": "high",
+                        }
                     ],
                     "source_count": 2,
                     "execution": {
@@ -359,6 +399,8 @@ class DashboardResponse(BaseModel):
     metrics: List[DashboardMetric] = Field(default_factory=list)
     highlights: List[DashboardHighlight] = Field(default_factory=list)
     actions: List[DashboardAction] = Field(default_factory=list)
+    matched_sources: List[DashboardMatchedSource] = Field(default_factory=list)
+    evidence_cards: List[DashboardEvidenceCard] = Field(default_factory=list)
     source_count: int
     execution: ExecutionMetadata
     evaluation: ReportEvaluation
@@ -520,42 +562,55 @@ class QueryRequest(BaseModel):
             "examples": [
                 {
                     "query": "What action is recommended for the SS7 issue?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:telecom_security:telecom_incident.txt",
                     "domain": "telecom_security",
                     "max_results": 2,
                 },
                 {
                     "query": "What governance control is required before export?",
+                    "retrieval_mode": "source",
                     "document_path": "test_data/telecom_incident.txt",
                     "domain": "telecom_security",
                     "max_results": 3,
                 },
                 {
+                    "query": "What are the most important healthcare escalations across this domain?",
+                    "retrieval_mode": "domain",
+                    "domain": "medical_qa",
+                    "max_results": 4,
+                },
+                {
                     "query": "Summarize financial accountability rules.",
+                    "retrieval_mode": "source",
                     "source_id": "sample:financial_risk:FInal_GFR_upto_31_07_2024.pdf",
                     "domain": "financial_risk",
                     "max_results": 3,
                 },
                 {
                     "query": "What should be done for a failed ATM debit complaint?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:banking_assistant:atm_notice.txt",
                     "domain": "banking_assistant",
                     "max_results": 2,
                 },
                 {
                     "query": "What action is associated with DTC P0420?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:automotive:dtc_fault_codes.csv",
                     "domain": "automotive",
                     "max_results": 2,
                 },
                 {
                     "query": "What should happen after a quality defect is reported?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:manufacturing:quality_incident.txt",
                     "domain": "manufacturing",
                     "max_results": 2,
                 },
                 {
                     "query": "What should be done for a delayed order with a refund request?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:ecommerce:customer_issue.txt",
                     "domain": "ecommerce",
                     "max_results": 2,
@@ -568,6 +623,10 @@ class QueryRequest(BaseModel):
         ...,
         min_length=3,
         examples=["What action is recommended for the SS7 issue?"],
+    )
+    retrieval_mode: str = Field(
+        default="source",
+        examples=["source"],
     )
     document_path: Optional[str] = Field(
         default=None,
@@ -588,8 +647,12 @@ class QueryRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_source_reference(self):
-        if not self.document_path and not self.source_id:
-            raise ValueError("Either document_path or source_id must be provided.")
+        if self.retrieval_mode not in {"source", "domain"}:
+            raise ValueError("retrieval_mode must be either 'source' or 'domain'.")
+        if self.retrieval_mode == "source" and not self.document_path and not self.source_id:
+            raise ValueError("Either document_path or source_id must be provided for source retrieval.")
+        if self.retrieval_mode == "domain" and not self.domain:
+            raise ValueError("domain must be provided for domain retrieval.")
         return self
 
 
