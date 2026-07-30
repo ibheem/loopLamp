@@ -91,6 +91,13 @@ class DashboardEvidenceCard(BaseModel):
     severity: str = "info"
 
 
+class DashboardDomainCard(BaseModel):
+    title: str
+    value: str
+    detail: str
+    severity: str = "info"
+
+
 class DashboardResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -139,6 +146,14 @@ class DashboardResponse(BaseModel):
                             "source_id": "sample:telecom_security:telecom_incident.txt",
                             "evidence_count": 2,
                             "severity": "high",
+                        }
+                    ],
+                    "domain_cards": [
+                        {
+                            "title": "Matched Sources",
+                            "value": "1",
+                            "detail": "One telecom source contributed evidence to this dashboard response.",
+                            "severity": "info",
                         }
                     ],
                     "source_count": 2,
@@ -401,6 +416,7 @@ class DashboardResponse(BaseModel):
     actions: List[DashboardAction] = Field(default_factory=list)
     matched_sources: List[DashboardMatchedSource] = Field(default_factory=list)
     evidence_cards: List[DashboardEvidenceCard] = Field(default_factory=list)
+    domain_cards: List[DashboardDomainCard] = Field(default_factory=list)
     source_count: int
     execution: ExecutionMetadata
     evaluation: ReportEvaluation

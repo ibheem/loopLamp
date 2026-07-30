@@ -470,6 +470,23 @@ export default function DashboardApp() {
           </div>
 
           <section className="panel">
+            <h3>Domain Cards</h3>
+            <div className="metric-grid">
+              {dashboard.domain_cards.length ? (
+                dashboard.domain_cards.map((card) => (
+                  <div className="metric-card" key={`${card.title}-${card.value}`}>
+                    <span>{card.title}</span>
+                    <strong>{card.value}</strong>
+                    <p className="hero-label">{card.detail}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No domain-specific cards available.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
             <h3>Matched Sources</h3>
             <div className="stack">
               {dashboard.matched_sources.length ? (

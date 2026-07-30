@@ -156,6 +156,14 @@ test("getSourceIndexTone maps source index states to pill styles", () => {
 
 test("matched source style inputs can be rendered from dashboard payload shape", () => {
   const payload = {
+    domain_cards: [
+      {
+        title: "Refund Pressure",
+        value: "2",
+        detail: "Refund-related evidence appears twice.",
+        severity: "high",
+      },
+    ],
     matched_sources: [
       {
         source: "test_data/telecom_incident.txt",
@@ -179,6 +187,7 @@ test("matched source style inputs can be rendered from dashboard payload shape",
     ],
   };
 
+  assert.equal(payload.domain_cards[0].title, "Refund Pressure");
   assert.equal(payload.matched_sources[0].evidence_count, 2);
   assert.equal(payload.evidence_cards[0].severity, "high");
 });
