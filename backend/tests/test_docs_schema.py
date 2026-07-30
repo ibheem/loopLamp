@@ -84,3 +84,11 @@ def test_openapi_dashboard_endpoint_includes_examples():
     assert "matched_sources" in serialized
     assert "evidence_cards" in serialized
     assert "domain_cards" in serialized
+    assert "tool_calls" in serialized
+    assert "agent_loop" in serialized
+    assert "inspection" in serialized
+    assert "search_query" in serialized
+    assert "agent_trace" in serialized
+    assert "planned_query" in serialized
+    assert "added_sources" in serialized
+    assert "steps" in serialized

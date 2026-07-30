@@ -450,6 +450,10 @@ export default function DashboardApp() {
               <h3>Execution</h3>
               <dl className="meta-list">
                 <div>
+                  <dt>Agent</dt>
+                  <dd>{dashboard.execution.agent_type}</dd>
+                </div>
+                <div>
                   <dt>Provider</dt>
                   <dd>{dashboard.execution.provider_mode}</dd>
                 </div>
@@ -462,10 +466,93 @@ export default function DashboardApp() {
                   <dd>{dashboard.execution.workflow_backend}</dd>
                 </div>
                 <div>
+                  <dt>Agent Loop</dt>
+                  <dd>{dashboard.execution.agent_loop || "retrieve_generate"}</dd>
+                </div>
+                <div>
+                  <dt>Tool Calls</dt>
+                  <dd>{dashboard.execution.tool_calls ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Plan Query</dt>
+                  <dd>{dashboard.execution.plan?.search_query || "No explicit retrieval refinement."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Needs Tool</dt>
+                  <dd>{dashboard.execution.plan ? (dashboard.execution.plan.should_retrieve ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Inspection Grounded</dt>
+                  <dd>{dashboard.execution.inspection ? (dashboard.execution.inspection.grounded ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
                   <dt>Sources</dt>
                   <dd>{dashboard.source_count}</dd>
                 </div>
               </dl>
+            </article>
+
+            <article className="panel">
+              <h3>Graph Decisions</h3>
+              <dl className="meta-list">
+                <div>
+                  <dt>Plan Rationale</dt>
+                  <dd>{dashboard.execution.plan?.rationale || "No explicit plan data available."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Max Results</dt>
+                  <dd>{dashboard.execution.plan?.max_results ?? "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Inspection Summary</dt>
+                  <dd>{dashboard.execution.inspection?.summary || "No structured inspection data available."}</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article className="panel">
+              <h3>Agent Trace</h3>
+              <dl className="meta-list">
+                <div>
+                  <dt>Planned Query</dt>
+                  <dd>{dashboard.execution.agent_trace?.planned_query || "No tool query planned."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Rationale</dt>
+                  <dd>{dashboard.execution.agent_trace?.plan_rationale || "No retrieval refinement was needed."}</dd>
+                </div>
+                <div>
+                  <dt>Evidence Review</dt>
+                  <dd>{dashboard.execution.agent_trace?.evidence_summary || "No evidence review summary available."}</dd>
+                </div>
+                <div>
+                  <dt>Grounded</dt>
+                  <dd>{dashboard.execution.agent_trace?.grounded ? "yes" : "no"}</dd>
+                </div>
+                <div>
+                  <dt>Added Sources</dt>
+                  <dd>
+                    {dashboard.execution.agent_trace?.added_sources?.length
+                      ? dashboard.execution.agent_trace.added_sources.join(", ")
+                      : "No additional sources were added."}
+                  </dd>
+                </div>
+              </dl>
+              <div className="stack timeline-stack">
+                {(dashboard.execution.agent_trace?.steps || []).length ? (
+                  dashboard.execution.agent_trace.steps.map((step, index) => (
+                    <div className="note-card" key={`${step.label}-${index}`}>
+                      <div className="note-header">
+                        <strong>{step.label}</strong>
+                        <span className={`severity severity-${step.status}`}>{step.status}</span>
+                      </div>
+                      <p>{step.detail}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="hero-label">No agent timeline available.</p>
+                )}
+              </div>
             </article>
           </div>
 

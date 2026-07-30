@@ -207,6 +207,10 @@ code {
   font-size: 0.82rem;
 }
 
+.timeline-stack {
+  margin-top: 18px;
+}
+
 .results {
   margin-top: 28px;
   display: grid;

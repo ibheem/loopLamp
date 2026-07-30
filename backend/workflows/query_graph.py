@@ -1,10 +1,11 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from backend.core.documents import Document
 from backend.core.models import DomainReport, QueryRequest
 from backend.guards.execution import GuardedExecutionResult
+from backend.services.llm_provider import EvidenceReview, RetrievalPlan
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class QueryWorkflowState:
     used_reflection: bool = False
     sources: Optional[List[Document]] = None
     report: Optional[DomainReport] = None
+    plan: Optional[RetrievalPlan] = None
+    evidence_review: Optional[EvidenceReview] = None
+    runtime_metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 def _report_is_grounded(report: Optional[DomainReport], sources: Optional[List[Document]]) -> bool:
@@ -57,6 +61,7 @@ class QueryGraphWorkflow:
             attempts=final_state.attempts,
             used_reflection=final_state.used_reflection,
             sources=final_state.sources or [],
+            runtime_metadata=final_state.runtime_metadata,
         )
 
     def _invoke(self, state: QueryWorkflowState) -> QueryWorkflowState:
@@ -71,24 +76,41 @@ class QueryGraphWorkflow:
     def _fallback_invoke(self, state: QueryWorkflowState) -> QueryWorkflowState:
         while True:
             state = self._retrieve_node(state)
+            state = self._plan_node(state)
+            if self._plan_next_step(state) == "tool":
+                state = self._tool_node(state)
+            state = self._inspect_node(state)
             state = self._generate_node(state)
             next_step = self._next_step(state)
             if next_step == "finish":
-                return state
-            state.used_reflection = True
-            state.current_k += 1
+                return self._finish_node(state)
+            state = self._reflect_node(state)
 
     def _build_graph(self):
         graph = StateGraph(dict)
         graph.add_node("retrieve", self._retrieve_payload_node)
+        graph.add_node("plan", self._plan_payload_node)
+        graph.add_node("tool", self._tool_payload_node)
+        graph.add_node("inspect", self._inspect_payload_node)
         graph.add_node("generate", self._generate_payload_node)
+        graph.add_node("reflect", self._reflect_payload_node)
+        graph.add_node("finish", self._finish_payload_node)
         graph.set_entry_point("retrieve")
-        graph.add_edge("retrieve", "generate")
+        graph.add_edge("retrieve", "plan")
+        graph.add_conditional_edges(
+            "plan",
+            self._plan_payload_step,
+            {"tool": "tool", "inspect": "inspect"},
+        )
+        graph.add_edge("tool", "inspect")
+        graph.add_edge("inspect", "generate")
         graph.add_conditional_edges(
             "generate",
             self._next_payload_step,
-            {"retry": "retrieve", "finish": END},
+            {"retry": "reflect", "finish": "finish"},
         )
+        graph.add_edge("reflect", "retrieve")
+        graph.add_edge("finish", END)
         return graph.compile()
 
     def _retrieve_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
@@ -98,11 +120,76 @@ class QueryGraphWorkflow:
             state.request.query,
             k=state.current_k,
         )
+        state.plan = None
+        state.evidence_review = None
+        begin_workflow = getattr(state.agent, "begin_workflow", None)
+        if callable(begin_workflow):
+            begin_workflow(state.request.query, state.sources or [])
+        return state
+
+    def _plan_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        planner = getattr(state.agent, "plan_retrieval", None)
+        if callable(planner):
+            state.plan = planner(state.request.query, state.sources or [])
+        else:
+            state.plan = None
+        return state
+
+    def _tool_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        if state.plan is None:
+            return state
+        plan_query = getattr(state.plan, "search_query", "")
+        max_results = getattr(state.plan, "max_results", 0) or max(len(state.sources or []) + 1, 2)
+        retrieved_documents = self.retrieval_service.retrieve(
+            state.vector_db,
+            plan_query,
+            k=max_results,
+        )
+        prior_documents = list(state.sources or [])
+        state.sources = self._merge_documents(prior_documents, retrieved_documents)
+        recorder = getattr(state.agent, "record_tool_result", None)
+        if callable(recorder):
+            recorder(state.request.query, prior_documents, retrieved_documents, state.sources)
+        return state
+
+    def _inspect_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        inspector = getattr(state.agent, "inspect_evidence", None)
+        if callable(inspector):
+            state.evidence_review = inspector(state.request.query, state.sources or [])
+        else:
+            state.evidence_review = None
         return state
 
     def _generate_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
-        state.report = state.agent.run(state.request.query, state.sources or [])
+        generator = getattr(state.agent, "generate_report", None)
+        if callable(generator):
+            state.report = generator(state.request.query, state.sources or [])
+        else:
+            state.report = state.agent.run(state.request.query, state.sources or [])
         return state
+
+    def _reflect_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        state.used_reflection = True
+        state.current_k += 1
+        return state
+
+    def _finish_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        state.runtime_metadata = state.agent.runtime_metadata() if hasattr(state.agent, "runtime_metadata") else {}
+        state.runtime_metadata["plan"] = (
+            state.plan.model_dump() if hasattr(state.plan, "model_dump") else state.plan
+        )
+        state.runtime_metadata["inspection"] = (
+            state.evidence_review.model_dump()
+            if hasattr(state.evidence_review, "model_dump")
+            else state.evidence_review
+        )
+        return state
+
+    def _plan_next_step(self, state: QueryWorkflowState) -> str:
+        plan = state.plan
+        if plan is not None and getattr(plan, "should_retrieve", False) and getattr(plan, "search_query", "").strip():
+            return "tool"
+        return "inspect"
 
     def _next_step(self, state: QueryWorkflowState) -> str:
         if _report_is_grounded(state.report, state.sources):
@@ -110,6 +197,22 @@ class QueryGraphWorkflow:
         if state.attempts >= state.max_attempts:
             return "finish"
         return "retry"
+
+    def _merge_documents(self, left: List[Document], right: List[Document]) -> List[Document]:
+        merged: List[Document] = []
+        seen = set()
+        for document in list(left) + list(right):
+            metadata = document.metadata or {}
+            key = (
+                str(metadata.get("source", "")),
+                metadata.get("chunk_index"),
+                document.page_content,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(document)
+        return merged
 
     def _to_payload(self, state: QueryWorkflowState) -> Dict[str, Any]:
         return {
@@ -121,10 +224,19 @@ class QueryGraphWorkflow:
             "attempts": state.attempts,
             "used_reflection": state.used_reflection,
             "sources": state.sources,
+            "plan": state.plan.model_dump() if hasattr(state.plan, "model_dump") else state.plan,
+            "evidence_review": (
+                state.evidence_review.model_dump()
+                if hasattr(state.evidence_review, "model_dump")
+                else state.evidence_review
+            ),
             "report": state.report,
+            "runtime_metadata": state.runtime_metadata,
         }
 
     def _from_payload(self, payload: Dict[str, Any]) -> QueryWorkflowState:
+        raw_plan = payload.get("plan")
+        raw_evidence_review = payload.get("evidence_review")
         return QueryWorkflowState(
             request=payload["request"],
             agent=payload["agent"],
@@ -134,7 +246,10 @@ class QueryGraphWorkflow:
             attempts=payload.get("attempts", 0),
             used_reflection=payload.get("used_reflection", False),
             sources=payload.get("sources"),
+            plan=self._coerce_plan(raw_plan),
+            evidence_review=self._coerce_evidence_review(raw_evidence_review),
             report=payload.get("report"),
+            runtime_metadata=payload.get("runtime_metadata") or {},
         )
 
     def _retrieve_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,14 +257,53 @@ class QueryGraphWorkflow:
         state = self._retrieve_node(state)
         return self._to_payload(state)
 
+    def _plan_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._plan_node(state)
+        return self._to_payload(state)
+
+    def _tool_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._tool_node(state)
+        return self._to_payload(state)
+
+    def _inspect_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._inspect_node(state)
+        return self._to_payload(state)
+
     def _generate_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         state = self._from_payload(payload)
         state = self._generate_node(state)
-        next_step = self._next_step(state)
-        if next_step == "retry":
-            state.used_reflection = True
-            state.current_k += 1
         return self._to_payload(state)
+
+    def _reflect_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._reflect_node(state)
+        return self._to_payload(state)
+
+    def _finish_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._finish_node(state)
+        return self._to_payload(state)
+
+    def _plan_payload_step(self, payload: Dict[str, Any]) -> str:
+        state = self._from_payload(payload)
+        return self._plan_next_step(state)
+
+    def _coerce_plan(self, payload: Any) -> Optional[RetrievalPlan]:
+        if payload is None or isinstance(payload, RetrievalPlan):
+            return payload
+        if hasattr(RetrievalPlan, "model_validate"):
+            return RetrievalPlan.model_validate(payload)
+        return RetrievalPlan.parse_obj(payload)
+
+    def _coerce_evidence_review(self, payload: Any) -> Optional[EvidenceReview]:
+        if payload is None or isinstance(payload, EvidenceReview):
+            return payload
+        if hasattr(EvidenceReview, "model_validate"):
+            return EvidenceReview.model_validate(payload)
+        return EvidenceReview.parse_obj(payload)
 
     def _next_payload_step(self, payload: Dict[str, Any]) -> str:
         state = self._from_payload(payload)
