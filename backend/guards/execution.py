@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Callable, List
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List
 
 from backend.core.documents import Document
 from backend.core.models import DomainReport
@@ -11,6 +11,7 @@ class GuardedExecutionResult:
     attempts: int
     used_reflection: bool
     sources: List[Document]
+    runtime_metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 def _answer_is_grounded(answer: DomainReport, sources: List[Document]) -> bool:

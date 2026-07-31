@@ -67,6 +67,8 @@ def test_dashboard_report_endpoint():
     assert response.actions
     assert response.matched_sources
     assert response.evidence_cards
+    assert hasattr(response.execution, "agent_trace")
+    assert hasattr(response.execution.agent_trace, "steps")
 
 
 def test_query_endpoint_accepts_source_id():

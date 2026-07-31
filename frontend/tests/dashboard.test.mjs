@@ -156,6 +156,51 @@ test("getSourceIndexTone maps source index states to pill styles", () => {
 
 test("matched source style inputs can be rendered from dashboard payload shape", () => {
   const payload = {
+    execution: {
+      agent_type: "ToolCallingReportAgent",
+      provider_mode: "openai",
+      provider_model: "gpt-5-mini",
+      workflow_backend: "fallback",
+      tool_calls: 1,
+      agent_loop: "plan_retrieve_inspect_generate",
+      plan: {
+        should_retrieve: true,
+        search_query: "refund eligibility delayed shipment review",
+        max_results: 2,
+        rationale: "Need policy-aware refund evidence.",
+      },
+      inspection: {
+        grounded: true,
+        summary: "The retrieved evidence supports refund validation against delay and policy windows.",
+      },
+      agent_trace: {
+        planned_query: "refund eligibility delayed shipment review",
+        plan_rationale: "Need policy-aware refund evidence.",
+        evidence_summary: "The retrieved evidence supports refund validation against delay and policy windows.",
+        grounded: true,
+        added_sources: ["return_policy.md"],
+        steps: [
+          {
+            label: "Initial Retrieval",
+            detail: "Started with 1 retrieved evidence chunk(s).",
+            status: "info",
+          },
+          {
+            label: "Tool Call",
+            detail: "Retrieve tool added 1 source(s): return_policy.md.",
+            status: "success",
+          },
+        ],
+      },
+    },
+    domain_cards: [
+      {
+        title: "Refund Pressure",
+        value: "2",
+        detail: "Refund-related evidence appears twice.",
+        severity: "high",
+      },
+    ],
     matched_sources: [
       {
         source: "test_data/telecom_incident.txt",
@@ -179,6 +224,15 @@ test("matched source style inputs can be rendered from dashboard payload shape",
     ],
   };
 
+  assert.equal(payload.domain_cards[0].title, "Refund Pressure");
+  assert.equal(payload.execution.tool_calls, 1);
+  assert.equal(payload.execution.agent_loop, "plan_retrieve_inspect_generate");
+  assert.equal(payload.execution.plan.search_query, "refund eligibility delayed shipment review");
+  assert.equal(payload.execution.inspection.grounded, true);
+  assert.equal(payload.execution.agent_trace.planned_query, "refund eligibility delayed shipment review");
+  assert.equal(payload.execution.agent_trace.grounded, true);
+  assert.equal(payload.execution.agent_trace.added_sources[0], "return_policy.md");
+  assert.equal(payload.execution.agent_trace.steps[1].label, "Tool Call");
   assert.equal(payload.matched_sources[0].evidence_count, 2);
   assert.equal(payload.evidence_cards[0].severity, "high");
 });
