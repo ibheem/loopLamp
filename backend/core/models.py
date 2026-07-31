@@ -43,11 +43,39 @@ class ReportEvaluation(BaseModel):
 
 
 class ExecutionMetadata(BaseModel):
+    class RetrievalDecision(BaseModel):
+        should_retrieve: bool = False
+        search_query: str = ""
+        max_results: int = 0
+        rationale: str = ""
+
+    class InspectionDecision(BaseModel):
+        grounded: bool = False
+        summary: str = ""
+
+    class AgentTraceStep(BaseModel):
+        label: str
+        detail: str
+        status: str = "info"
+
+    class AgentTrace(BaseModel):
+        planned_query: str = ""
+        plan_rationale: str = ""
+        evidence_summary: str = ""
+        grounded: bool = False
+        added_sources: List[str] = Field(default_factory=list)
+        steps: List["ExecutionMetadata.AgentTraceStep"] = Field(default_factory=list)
+
     workflow_backend: str
     agent_type: str
     provider_mode: str
     provider_model: str = ""
     used_fallback: bool = False
+    tool_calls: int = 0
+    agent_loop: str = "retrieve_generate"
+    plan: Optional[RetrievalDecision] = None
+    inspection: Optional[InspectionDecision] = None
+    agent_trace: AgentTrace = Field(default_factory=AgentTrace)
 
 
 class DashboardMetric(BaseModel):
@@ -70,6 +98,32 @@ class DashboardAction(BaseModel):
 class DashboardStatus(BaseModel):
     level: str
     issues: List[str] = Field(default_factory=list)
+
+
+class DashboardMatchedSource(BaseModel):
+    source: str
+    source_id: str = ""
+    domain: str = ""
+    origin: str = ""
+    evidence_count: int = 0
+    file_type: str = ""
+    preview: str = ""
+
+
+class DashboardEvidenceCard(BaseModel):
+    title: str
+    detail: str
+    source: str
+    source_id: str = ""
+    evidence_count: int = 0
+    severity: str = "info"
+
+
+class DashboardDomainCard(BaseModel):
+    title: str
+    value: str
+    detail: str
+    severity: str = "info"
 
 
 class DashboardResponse(BaseModel):
@@ -101,6 +155,35 @@ class DashboardResponse(BaseModel):
                         {"priority": 1, "action": "Enable interconnect screening rules and validate with roaming test traffic."},
                         {"priority": 2, "action": "Assign telecom security operations as the mitigation owner for weekly review."},
                     ],
+                    "matched_sources": [
+                        {
+                            "source": "test_data/telecom_incident.txt",
+                            "source_id": "sample:telecom_security:telecom_incident.txt",
+                            "domain": "telecom_security",
+                            "origin": "sample",
+                            "evidence_count": 2,
+                            "file_type": "text",
+                            "preview": "SS7 routing instability and authentication disruption were observed on the roaming edge.",
+                        }
+                    ],
+                    "evidence_cards": [
+                        {
+                            "title": "SS7 routing evidence",
+                            "detail": "The retrieved context points to SS7 routing instability impacting customer authentication flows.",
+                            "source": "test_data/telecom_incident.txt",
+                            "source_id": "sample:telecom_security:telecom_incident.txt",
+                            "evidence_count": 2,
+                            "severity": "high",
+                        }
+                    ],
+                    "domain_cards": [
+                        {
+                            "title": "Matched Sources",
+                            "value": "1",
+                            "detail": "One telecom source contributed evidence to this dashboard response.",
+                            "severity": "info",
+                        }
+                    ],
                     "source_count": 2,
                     "execution": {
                         "workflow_backend": "query_pipeline",
@@ -108,6 +191,32 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 1,
+                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "ss7 route isolate action",
+                            "max_results": 2,
+                            "rationale": "The initial evidence shows impact but needs a more action-oriented retrieval.",
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The retrieved evidence now includes the mitigation step for the affected route.",
+                        },
+                        "agent_trace": {
+                            "planned_query": "ss7 route isolate action",
+                            "plan_rationale": "The initial evidence shows impact but needs a more action-oriented retrieval.",
+                            "evidence_summary": "The retrieved evidence now includes the mitigation step for the affected route.",
+                            "grounded": True,
+                            "added_sources": ["telecom_playbook.txt"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The initial evidence shows impact but needs a more action-oriented retrieval.", "status": "info"},
+                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): telecom_playbook.txt.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The retrieved evidence now includes the mitigation step for the affected route.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final telecom security report from 2 chunk(s).", "status": "success"},
+                            ],
+                        },
                     },
                     "evaluation": {
                         "grounded": False,
@@ -145,6 +254,32 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "llm",
                         "provider_model": "gpt-4.1-mini",
                         "used_fallback": False,
+                        "tool_calls": 1,
+                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "financial authority approval audit control",
+                            "max_results": 3,
+                            "rationale": "The agent refined retrieval toward approval and audit clauses before summarizing controls.",
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The combined evidence supports approval-gated release and audit traceability.",
+                        },
+                        "agent_trace": {
+                            "planned_query": "financial authority approval audit control",
+                            "plan_rationale": "The agent refined retrieval toward approval and audit clauses before summarizing controls.",
+                            "evidence_summary": "The combined evidence supports approval-gated release and audit traceability.",
+                            "grounded": True,
+                            "added_sources": ["finance_control_policy.pdf"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 2 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent refined retrieval toward approval and audit clauses before summarizing controls.", "status": "info"},
+                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): finance_control_policy.pdf.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The combined evidence supports approval-gated release and audit traceability.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final financial risk report from 3 chunk(s).", "status": "success"},
+                            ],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -180,6 +315,18 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 0,
+                        "agent_loop": "retrieve_generate",
+                        "plan": None,
+                        "inspection": None,
+                        "agent_trace": {
+                            "planned_query": "",
+                            "plan_rationale": "",
+                            "evidence_summary": "",
+                            "grounded": False,
+                            "added_sources": [],
+                            "steps": [],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -220,6 +367,18 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 0,
+                        "agent_loop": "retrieve_generate",
+                        "plan": None,
+                        "inspection": None,
+                        "agent_trace": {
+                            "planned_query": "",
+                            "plan_rationale": "",
+                            "evidence_summary": "",
+                            "grounded": False,
+                            "added_sources": [],
+                            "steps": [],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -260,6 +419,32 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 1,
+                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "dtc brake inspection corrective action",
+                            "max_results": 2,
+                            "rationale": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.",
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The evidence supports DTC validation before component replacement.",
+                        },
+                        "agent_trace": {
+                            "planned_query": "dtc brake inspection corrective action",
+                            "plan_rationale": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.",
+                            "evidence_summary": "The evidence supports DTC validation before component replacement.",
+                            "grounded": True,
+                            "added_sources": ["dtc_fault_codes.csv"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.", "status": "info"},
+                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): dtc_fault_codes.csv.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The evidence supports DTC validation before component replacement.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final automotive report from 2 chunk(s).", "status": "success"},
+                            ],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -300,6 +485,32 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 1,
+                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "manufacturing defect containment restart approval",
+                            "max_results": 2,
+                            "rationale": "The agent refined toward restart controls and containment evidence.",
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The retrieved material supports containment and approval before restart.",
+                        },
+                        "agent_trace": {
+                            "planned_query": "manufacturing defect containment restart approval",
+                            "plan_rationale": "The agent refined toward restart controls and containment evidence.",
+                            "evidence_summary": "The retrieved material supports containment and approval before restart.",
+                            "grounded": True,
+                            "added_sources": ["quality_incident.txt"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent refined toward restart controls and containment evidence.", "status": "info"},
+                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): quality_incident.txt.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The retrieved material supports containment and approval before restart.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final manufacturing report from 2 chunk(s).", "status": "success"},
+                            ],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -340,6 +551,32 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
+                        "tool_calls": 1,
+                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "refund eligibility delayed shipment review",
+                            "max_results": 2,
+                            "rationale": "The agent refined toward refund and delay evidence before answering support actions.",
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The retrieved evidence supports refund validation against delay and policy windows.",
+                        },
+                        "agent_trace": {
+                            "planned_query": "refund eligibility delayed shipment review",
+                            "plan_rationale": "The agent refined toward refund and delay evidence before answering support actions.",
+                            "evidence_summary": "The retrieved evidence supports refund validation against delay and policy windows.",
+                            "grounded": True,
+                            "added_sources": ["return_policy.md"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent refined toward refund and delay evidence before answering support actions.", "status": "info"},
+                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): return_policy.md.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The retrieved evidence supports refund validation against delay and policy windows.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final ecommerce report from 2 chunk(s).", "status": "success"},
+                            ],
+                        },
                     },
                     "evaluation": {
                         "grounded": True,
@@ -359,6 +596,9 @@ class DashboardResponse(BaseModel):
     metrics: List[DashboardMetric] = Field(default_factory=list)
     highlights: List[DashboardHighlight] = Field(default_factory=list)
     actions: List[DashboardAction] = Field(default_factory=list)
+    matched_sources: List[DashboardMatchedSource] = Field(default_factory=list)
+    evidence_cards: List[DashboardEvidenceCard] = Field(default_factory=list)
+    domain_cards: List[DashboardDomainCard] = Field(default_factory=list)
     source_count: int
     execution: ExecutionMetadata
     evaluation: ReportEvaluation
@@ -520,42 +760,55 @@ class QueryRequest(BaseModel):
             "examples": [
                 {
                     "query": "What action is recommended for the SS7 issue?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:telecom_security:telecom_incident.txt",
                     "domain": "telecom_security",
                     "max_results": 2,
                 },
                 {
                     "query": "What governance control is required before export?",
+                    "retrieval_mode": "source",
                     "document_path": "test_data/telecom_incident.txt",
                     "domain": "telecom_security",
                     "max_results": 3,
                 },
                 {
+                    "query": "What are the most important healthcare escalations across this domain?",
+                    "retrieval_mode": "domain",
+                    "domain": "medical_qa",
+                    "max_results": 4,
+                },
+                {
                     "query": "Summarize financial accountability rules.",
+                    "retrieval_mode": "source",
                     "source_id": "sample:financial_risk:FInal_GFR_upto_31_07_2024.pdf",
                     "domain": "financial_risk",
                     "max_results": 3,
                 },
                 {
                     "query": "What should be done for a failed ATM debit complaint?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:banking_assistant:atm_notice.txt",
                     "domain": "banking_assistant",
                     "max_results": 2,
                 },
                 {
                     "query": "What action is associated with DTC P0420?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:automotive:dtc_fault_codes.csv",
                     "domain": "automotive",
                     "max_results": 2,
                 },
                 {
                     "query": "What should happen after a quality defect is reported?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:manufacturing:quality_incident.txt",
                     "domain": "manufacturing",
                     "max_results": 2,
                 },
                 {
                     "query": "What should be done for a delayed order with a refund request?",
+                    "retrieval_mode": "source",
                     "source_id": "sample:ecommerce:customer_issue.txt",
                     "domain": "ecommerce",
                     "max_results": 2,
@@ -568,6 +821,10 @@ class QueryRequest(BaseModel):
         ...,
         min_length=3,
         examples=["What action is recommended for the SS7 issue?"],
+    )
+    retrieval_mode: str = Field(
+        default="source",
+        examples=["source"],
     )
     document_path: Optional[str] = Field(
         default=None,
@@ -588,8 +845,12 @@ class QueryRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_source_reference(self):
-        if not self.document_path and not self.source_id:
-            raise ValueError("Either document_path or source_id must be provided.")
+        if self.retrieval_mode not in {"source", "domain"}:
+            raise ValueError("retrieval_mode must be either 'source' or 'domain'.")
+        if self.retrieval_mode == "source" and not self.document_path and not self.source_id:
+            raise ValueError("Either document_path or source_id must be provided for source retrieval.")
+        if self.retrieval_mode == "domain" and not self.domain:
+            raise ValueError("domain must be provided for domain retrieval.")
         return self
 
 

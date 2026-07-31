@@ -21,6 +21,7 @@ from backend.app.main import (
     upload_source,
 )
 from backend.core.models import QueryRequest, UploadSourceRequest
+from backend.core.models import DomainReport
 from backend.services.source_registry import SourceRegistryService
 from backend.workflows.query_pipeline import QueryPipeline
 
@@ -64,6 +65,10 @@ def test_dashboard_report_endpoint():
     assert response.source_count > 0
     assert response.metrics
     assert response.actions
+    assert response.matched_sources
+    assert response.evidence_cards
+    assert hasattr(response.execution, "agent_trace")
+    assert hasattr(response.execution.agent_trace, "steps")
 
 
 def test_query_endpoint_accepts_source_id():
@@ -84,6 +89,19 @@ def test_query_endpoint_accepts_source_id():
 
     assert response.domain == "telecom_security"
     assert response.sources
+
+
+def test_query_request_accepts_domain_mode_without_source_reference():
+    request = QueryRequest(
+        query="Summarize the main risks across finance.",
+        retrieval_mode="domain",
+        domain="financial_risk",
+        max_results=3,
+    )
+
+    assert request.retrieval_mode == "domain"
+    assert request.source_id is None
+    assert request.document_path is None
 
 
 def test_cors_allows_local_frontend_origin():
@@ -293,4 +311,70 @@ def test_query_pipeline_sync_saved_sources_tracks_failures(monkeypatch):
     assert state_updates == [
         ("sample:telecom_security:telecom_incident.txt", "indexed", "qdrant_persistent", 1),
         ("upload:20260728061500_bad.txt", "failed", "", None),
+    ]
+
+
+def test_query_pipeline_domain_mode_aggregates_domain_sources(monkeypatch):
+    pipeline = QueryPipeline()
+    state_updates = []
+    fake_sources = [
+        SimpleNamespace(source_id="sample:financial_risk:first.pdf", path="first.txt", domain="financial_risk", origin="sample"),
+        SimpleNamespace(source_id="sample:general:note.txt", path="second.txt", domain="general", origin="sample"),
+    ]
+    monkeypatch.setattr(pipeline.source_registry, "list_sources_for_domain", lambda domain: fake_sources)
+    monkeypatch.setattr(
+        pipeline.source_registry,
+        "set_source_index_state",
+        lambda source_id, index_status, vector_backend="", indexed_document_count=None: state_updates.append(
+            (source_id, index_status, vector_backend, indexed_document_count)
+        ),
+    )
+
+    def fake_ingest(path):
+        return [SimpleNamespace(page_content=f"content-{path}", metadata={})]
+
+    monkeypatch.setattr(pipeline.ingestion_service, "ingest", fake_ingest)
+    build_calls = []
+
+    def fake_build_vector_db(documents, collection_key="", force_reindex=False):
+        build_calls.append((collection_key, force_reindex, len(documents)))
+        return SimpleNamespace(
+            backend_name="qdrant_persistent",
+            similarity_search=lambda query, k=5: documents[:k],
+        )
+
+    monkeypatch.setattr("backend.workflows.query_pipeline.build_vector_db", fake_build_vector_db)
+    monkeypatch.setattr(
+        pipeline.workflow,
+        "run",
+        lambda agent, vector_db, request: SimpleNamespace(
+            answer=DomainReport(
+                summary="retrieved context across domain sources",
+                domain=request.domain,
+                metrics=[],
+                insights=[],
+                recommendations=[],
+                source_refs=[],
+            ),
+            attempts=1,
+            used_reflection=False,
+            sources=vector_db.similarity_search(request.query, k=request.max_results),
+        ),
+    )
+
+    response = pipeline.run(
+        QueryRequest(
+            query="Summarize financial rules across the domain.",
+            retrieval_mode="domain",
+            domain="financial_risk",
+            max_results=2,
+        )
+    )
+
+    assert response.domain == "financial_risk"
+    assert len(response.sources) == 2
+    assert build_calls == [("domain:financial_risk:all_sources", False, 2)]
+    assert state_updates == [
+        ("sample:financial_risk:first.pdf", "indexed", "qdrant_persistent", 1),
+        ("sample:general:note.txt", "indexed", "qdrant_persistent", 1),
     ]

@@ -14,6 +14,7 @@ import {
   getSourceIndexTone,
   getStatusTone,
   groupSourcesByDomain,
+  retrievalModeOptions,
 } from "../lib/dashboard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -108,7 +109,8 @@ export default function DashboardApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: formState.query,
-          source_id: formState.sourceId,
+          retrieval_mode: formState.retrievalMode,
+          source_id: formState.retrievalMode === "source" ? formState.sourceId : null,
           domain: formState.domain,
           max_results: Number(formState.maxResults),
         }),
@@ -278,6 +280,16 @@ export default function DashboardApp() {
             />
           </label>
           <label>
+            <span>Search Scope</span>
+            <select value={formState.retrievalMode} onChange={updateField("retrievalMode")}>
+              {retrievalModeOptions.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             <span>Saved Source</span>
             <select value={formState.sourceId} onChange={handleSourceChange}>
               {groupedSources.length ? (
@@ -354,6 +366,9 @@ export default function DashboardApp() {
           <div className="source-meta">
             <p className="hero-label">
               Selected source: {selectedSource.label} · {selectedSource.domain} · {selectedSource.origin}
+            </p>
+            <p className="hero-label">
+              Search scope: {formState.retrievalMode === "domain" ? "all saved sources in this domain" : "selected source only"}
             </p>
             <div className="source-meta-row">
               <span className={`status-pill source-status-pill ${getSourceIndexTone(selectedSource.index_status)}`}>
@@ -435,6 +450,10 @@ export default function DashboardApp() {
               <h3>Execution</h3>
               <dl className="meta-list">
                 <div>
+                  <dt>Agent</dt>
+                  <dd>{dashboard.execution.agent_type}</dd>
+                </div>
+                <div>
                   <dt>Provider</dt>
                   <dd>{dashboard.execution.provider_mode}</dd>
                 </div>
@@ -447,12 +466,156 @@ export default function DashboardApp() {
                   <dd>{dashboard.execution.workflow_backend}</dd>
                 </div>
                 <div>
+                  <dt>Agent Loop</dt>
+                  <dd>{dashboard.execution.agent_loop || "retrieve_generate"}</dd>
+                </div>
+                <div>
+                  <dt>Tool Calls</dt>
+                  <dd>{dashboard.execution.tool_calls ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Plan Query</dt>
+                  <dd>{dashboard.execution.plan?.search_query || "No explicit retrieval refinement."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Needs Tool</dt>
+                  <dd>{dashboard.execution.plan ? (dashboard.execution.plan.should_retrieve ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Inspection Grounded</dt>
+                  <dd>{dashboard.execution.inspection ? (dashboard.execution.inspection.grounded ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
                   <dt>Sources</dt>
                   <dd>{dashboard.source_count}</dd>
                 </div>
               </dl>
             </article>
+
+            <article className="panel">
+              <h3>Graph Decisions</h3>
+              <dl className="meta-list">
+                <div>
+                  <dt>Plan Rationale</dt>
+                  <dd>{dashboard.execution.plan?.rationale || "No explicit plan data available."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Max Results</dt>
+                  <dd>{dashboard.execution.plan?.max_results ?? "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Inspection Summary</dt>
+                  <dd>{dashboard.execution.inspection?.summary || "No structured inspection data available."}</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article className="panel">
+              <h3>Agent Trace</h3>
+              <dl className="meta-list">
+                <div>
+                  <dt>Planned Query</dt>
+                  <dd>{dashboard.execution.agent_trace?.planned_query || "No tool query planned."}</dd>
+                </div>
+                <div>
+                  <dt>Plan Rationale</dt>
+                  <dd>{dashboard.execution.agent_trace?.plan_rationale || "No retrieval refinement was needed."}</dd>
+                </div>
+                <div>
+                  <dt>Evidence Review</dt>
+                  <dd>{dashboard.execution.agent_trace?.evidence_summary || "No evidence review summary available."}</dd>
+                </div>
+                <div>
+                  <dt>Grounded</dt>
+                  <dd>{dashboard.execution.agent_trace?.grounded ? "yes" : "no"}</dd>
+                </div>
+                <div>
+                  <dt>Added Sources</dt>
+                  <dd>
+                    {dashboard.execution.agent_trace?.added_sources?.length
+                      ? dashboard.execution.agent_trace.added_sources.join(", ")
+                      : "No additional sources were added."}
+                  </dd>
+                </div>
+              </dl>
+              <div className="stack timeline-stack">
+                {(dashboard.execution.agent_trace?.steps || []).length ? (
+                  dashboard.execution.agent_trace.steps.map((step, index) => (
+                    <div className="note-card" key={`${step.label}-${index}`}>
+                      <div className="note-header">
+                        <strong>{step.label}</strong>
+                        <span className={`severity severity-${step.status}`}>{step.status}</span>
+                      </div>
+                      <p>{step.detail}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="hero-label">No agent timeline available.</p>
+                )}
+              </div>
+            </article>
           </div>
+
+          <section className="panel">
+            <h3>Domain Cards</h3>
+            <div className="metric-grid">
+              {dashboard.domain_cards.length ? (
+                dashboard.domain_cards.map((card) => (
+                  <div className="metric-card" key={`${card.title}-${card.value}`}>
+                    <span>{card.title}</span>
+                    <strong>{card.value}</strong>
+                    <p className="hero-label">{card.detail}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No domain-specific cards available.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Matched Sources</h3>
+            <div className="stack">
+              {dashboard.matched_sources.length ? (
+                dashboard.matched_sources.map((source) => (
+                  <div className="note-card" key={`${source.source_id || source.source}-${source.evidence_count}`}>
+                    <div className="note-header">
+                      <strong>{source.source.split("/").pop()}</strong>
+                      <span className="hero-label">{source.evidence_count} evidence hit(s)</span>
+                    </div>
+                    <p>{source.preview || "No preview available."}</p>
+                    <p className="hero-label">
+                      {source.domain || "unknown"} · {source.origin || "unknown"} · {source.file_type || "n/a"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No matched source summaries available.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Evidence Cards</h3>
+            <div className="stack">
+              {dashboard.evidence_cards.length ? (
+                dashboard.evidence_cards.map((card, index) => (
+                  <div className="note-card" key={`${card.source_id || card.source}-${index}`}>
+                    <div className="note-header">
+                      <strong>{card.title}</strong>
+                      <span className={`severity severity-${card.severity}`}>{card.severity}</span>
+                    </div>
+                    <p>{card.detail}</p>
+                    <p className="hero-label">
+                      {card.source.split("/").pop()} · {card.evidence_count} evidence unit(s)
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="hero-label">No evidence cards available.</p>
+              )}
+            </div>
+          </section>
 
           <section className="panel">
             <h3>Warnings</h3>
