@@ -5,7 +5,7 @@ from backend.agents.base import DomainAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.core.documents import Document
 from backend.core.models import DomainMetric, DomainReport, DomainSourceRef
-from backend.services.llm_provider import ProviderUnavailableError, ReportLLMProvider
+from backend.services.llm_provider import EvidenceSummary, ProviderUnavailableError, ReportLLMProvider, SourceComparison
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,15 @@ class OpenAIReportAgent(DomainAgent):
         self._last_used_fallback = True
 
     def run(self, query: str, context_documents: List[Document]) -> DomainReport:
+        return self.generate_report_from_state(query, context_documents)
+
+    def generate_report_from_state(
+        self,
+        query: str,
+        context_documents: List[Document],
+        comparison: Optional[SourceComparison] = None,
+        evidence_summary: Optional[EvidenceSummary] = None,
+    ) -> DomainReport:
         if not context_documents:
             self._last_provider_mode = "fallback"
             self._last_provider_model = ""
@@ -36,8 +45,10 @@ class OpenAIReportAgent(DomainAgent):
                 query=query,
                 context_documents=context_documents,
                 source_refs=source_refs,
+                comparison=comparison,
+                evidence_summary=evidence_summary,
             )
-            self._last_provider_mode = "openai"
+            self._last_provider_mode = getattr(self.provider, "provider_id", "openai")
             self._last_provider_model = getattr(self.provider, "model", "")
             self._last_used_fallback = False
             return self._normalize_report(report, len(context_documents), source_refs)

@@ -277,6 +277,16 @@ code {
   line-height: 1.5;
 }
 
+.note-card summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.note-card summary::-webkit-details-marker {
+  display: none;
+}
+
 .metric-card,
 .note-card {
   padding: 16px;
@@ -311,6 +321,14 @@ code {
 }
 
 .severity-medium {
+  color: var(--warning);
+}
+
+.severity-success {
+  color: var(--success);
+}
+
+.severity-warning {
   color: var(--warning);
 }
 
@@ -353,6 +371,51 @@ code {
 
 .meta-list dd {
   margin: 0;
+}
+
+.evaluation-banner,
+.evaluation-details {
+  border-width: 1px;
+}
+
+.evaluation-banner {
+  margin-bottom: 16px;
+}
+
+.evaluation-pill {
+  min-width: auto;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
+.evaluation-card-success {
+  border-color: rgba(22, 101, 52, 0.18);
+  background: rgba(22, 101, 52, 0.06);
+}
+
+.evaluation-card-warning {
+  border-color: rgba(180, 83, 9, 0.2);
+  background: rgba(180, 83, 9, 0.08);
+}
+
+.evaluation-item-present {
+  color: var(--success);
+}
+
+.evaluation-item-missing {
+  color: var(--warning);
+}
+
+.evaluation-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.evaluation-section-card {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
 }
 
 @media (max-width: 880px) {

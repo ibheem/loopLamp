@@ -40,6 +40,10 @@ class ReportEvaluation(BaseModel):
     has_sources: bool
     has_recommendations: bool
     issues: List[str] = Field(default_factory=list)
+    graph_state_score: int = 0
+    graph_state_expected_fields: List[str] = Field(default_factory=list)
+    graph_state_present_fields: List[str] = Field(default_factory=list)
+    graph_state_missing_fields: List[str] = Field(default_factory=list)
 
 
 class ExecutionMetadata(BaseModel):
@@ -48,10 +52,63 @@ class ExecutionMetadata(BaseModel):
         search_query: str = ""
         max_results: int = 0
         rationale: str = ""
+        compare_sources: bool = False
+        summarize_evidence: bool = False
 
     class InspectionDecision(BaseModel):
         grounded: bool = False
         summary: str = ""
+
+    class ComparisonDecision(BaseModel):
+        summary: str = ""
+        compared_sources: List[str] = Field(default_factory=list)
+        consensus_points: List[str] = Field(default_factory=list)
+        conflicts: List[str] = Field(default_factory=list)
+        control_themes: List[str] = Field(default_factory=list)
+        obligations: List[str] = Field(default_factory=list)
+        symptoms: List[str] = Field(default_factory=list)
+        red_flags: List[str] = Field(default_factory=list)
+        escalation_criteria: List[str] = Field(default_factory=list)
+        care_constraints: List[str] = Field(default_factory=list)
+        transaction_signals: List[str] = Field(default_factory=list)
+        customer_impact_checks: List[str] = Field(default_factory=list)
+        fraud_indicators: List[str] = Field(default_factory=list)
+        next_actions: List[str] = Field(default_factory=list)
+        order_signals: List[str] = Field(default_factory=list)
+        policy_constraints: List[str] = Field(default_factory=list)
+        fulfillment_risks: List[str] = Field(default_factory=list)
+        customer_resolution_actions: List[str] = Field(default_factory=list)
+        fault_signals: List[str] = Field(default_factory=list)
+        subsystem_risks: List[str] = Field(default_factory=list)
+        repair_prerequisites: List[str] = Field(default_factory=list)
+        safety_checks: List[str] = Field(default_factory=list)
+        defect_signals: List[str] = Field(default_factory=list)
+        line_impact: List[str] = Field(default_factory=list)
+        containment_actions: List[str] = Field(default_factory=list)
+        restart_gates: List[str] = Field(default_factory=list)
+
+    class EvidenceSummaryDecision(BaseModel):
+        summary: str = ""
+        key_points: List[str] = Field(default_factory=list)
+        cited_sources: List[str] = Field(default_factory=list)
+        decision_basis: List[str] = Field(default_factory=list)
+        recommended_controls: List[str] = Field(default_factory=list)
+        follow_up_checks: List[str] = Field(default_factory=list)
+        symptom_summary: List[str] = Field(default_factory=list)
+        escalation_path: List[str] = Field(default_factory=list)
+        patient_safety_notes: List[str] = Field(default_factory=list)
+        service_actions: List[str] = Field(default_factory=list)
+        customer_message_points: List[str] = Field(default_factory=list)
+        fraud_follow_ups: List[str] = Field(default_factory=list)
+        refund_basis: List[str] = Field(default_factory=list)
+        resolution_plan: List[str] = Field(default_factory=list)
+        inventory_notes: List[str] = Field(default_factory=list)
+        diagnosis_summary: List[str] = Field(default_factory=list)
+        repair_plan: List[str] = Field(default_factory=list)
+        vehicle_safety_notes: List[str] = Field(default_factory=list)
+        containment_summary: List[str] = Field(default_factory=list)
+        production_actions: List[str] = Field(default_factory=list)
+        quality_follow_ups: List[str] = Field(default_factory=list)
 
     class AgentTraceStep(BaseModel):
         label: str
@@ -61,19 +118,26 @@ class ExecutionMetadata(BaseModel):
     class AgentTrace(BaseModel):
         planned_query: str = ""
         plan_rationale: str = ""
+        comparison_summary: str = ""
         evidence_summary: str = ""
+        summary_digest: str = ""
         grounded: bool = False
         added_sources: List[str] = Field(default_factory=list)
         steps: List["ExecutionMetadata.AgentTraceStep"] = Field(default_factory=list)
 
     workflow_backend: str
     agent_type: str
+    requested_provider: str = "auto"
+    requested_model: str = ""
     provider_mode: str
     provider_model: str = ""
+    llm_generated: bool = False
     used_fallback: bool = False
     tool_calls: int = 0
     agent_loop: str = "retrieve_generate"
     plan: Optional[RetrievalDecision] = None
+    comparison: Optional[ComparisonDecision] = None
+    evidence_summary: Optional[EvidenceSummaryDecision] = None
     inspection: Optional[InspectionDecision] = None
     agent_trace: AgentTrace = Field(default_factory=AgentTrace)
 
@@ -191,13 +255,26 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "fallback",
                         "provider_model": "",
                         "used_fallback": True,
-                        "tool_calls": 1,
-                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
                         "plan": {
                             "should_retrieve": True,
                             "search_query": "ss7 route isolate action",
                             "max_results": 2,
                             "rationale": "The initial evidence shows impact but needs a more action-oriented retrieval.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The action chunk and the incident chunk agree that SS7 route isolation is the immediate mitigation.",
+                            "compared_sources": ["telecom_incident.txt", "telecom_playbook.txt"],
+                            "consensus_points": ["Route isolation is the immediate step."],
+                            "conflicts": [],
+                        },
+                        "evidence_summary": {
+                            "summary": "Cross-source evidence supports isolating the route first and validating screening controls next.",
+                            "key_points": ["Isolate the affected route.", "Validate interconnect screening controls."],
+                            "cited_sources": ["telecom_incident.txt", "telecom_playbook.txt"],
                         },
                         "inspection": {
                             "grounded": True,
@@ -206,13 +283,17 @@ class DashboardResponse(BaseModel):
                         "agent_trace": {
                             "planned_query": "ss7 route isolate action",
                             "plan_rationale": "The initial evidence shows impact but needs a more action-oriented retrieval.",
+                            "comparison_summary": "The action chunk and the incident chunk agree that SS7 route isolation is the immediate mitigation.",
                             "evidence_summary": "The retrieved evidence now includes the mitigation step for the affected route.",
+                            "summary_digest": "Cross-source evidence supports isolating the route first and validating screening controls next.",
                             "grounded": True,
                             "added_sources": ["telecom_playbook.txt"],
                             "steps": [
                                 {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
                                 {"label": "Plan", "detail": "The initial evidence shows impact but needs a more action-oriented retrieval.", "status": "info"},
-                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): telecom_playbook.txt.", "status": "success"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): telecom_playbook.txt.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The action chunk and the incident chunk agree that SS7 route isolation is the immediate mitigation.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "Cross-source evidence supports isolating the route first and validating screening controls next.", "status": "success"},
                                 {"label": "Evidence Review", "detail": "The retrieved evidence now includes the mitigation step for the affected route.", "status": "success"},
                                 {"label": "Generate", "detail": "Generated the final telecom security report from 2 chunk(s).", "status": "success"},
                             ],
@@ -254,13 +335,31 @@ class DashboardResponse(BaseModel):
                         "provider_mode": "llm",
                         "provider_model": "gpt-4.1-mini",
                         "used_fallback": False,
-                        "tool_calls": 1,
-                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
                         "plan": {
                             "should_retrieve": True,
                             "search_query": "financial authority approval audit control",
                             "max_results": 3,
                             "rationale": "The agent refined retrieval toward approval and audit clauses before summarizing controls.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The finance sources align on delegated approval authority and audit-ready release controls.",
+                            "compared_sources": ["finance_policy.pdf", "finance_control_policy.pdf"],
+                            "consensus_points": ["Fund release requires sanctioned authority."],
+                            "conflicts": ["Exception escalation language is less explicit in one source."],
+                            "control_themes": ["delegated_authority", "audit_traceability", "release_governance"],
+                            "obligations": ["Validate approver authority", "Retain approval trail"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The combined finance evidence supports approval validation first, then audit-traceable release execution.",
+                            "key_points": ["Verify sanction authority.", "Retain approval evidence for audit."],
+                            "cited_sources": ["finance_policy.pdf", "finance_control_policy.pdf"],
+                            "decision_basis": ["Delegated authority clauses are explicit.", "Audit retention language is consistent."],
+                            "recommended_controls": ["Check sanction matrix", "Record release approvals"],
+                            "follow_up_checks": ["Confirm exception escalation owner", "Validate audit evidence completeness"],
                         },
                         "inspection": {
                             "grounded": True,
@@ -269,13 +368,17 @@ class DashboardResponse(BaseModel):
                         "agent_trace": {
                             "planned_query": "financial authority approval audit control",
                             "plan_rationale": "The agent refined retrieval toward approval and audit clauses before summarizing controls.",
+                            "comparison_summary": "The finance sources align on delegated approval authority and audit-ready release controls.",
                             "evidence_summary": "The combined evidence supports approval-gated release and audit traceability.",
+                            "summary_digest": "The combined finance evidence supports approval validation first, then audit-traceable release execution.",
                             "grounded": True,
                             "added_sources": ["finance_control_policy.pdf"],
                             "steps": [
                                 {"label": "Initial Retrieval", "detail": "Started with 2 retrieved evidence chunk(s).", "status": "info"},
                                 {"label": "Plan", "detail": "The agent refined retrieval toward approval and audit clauses before summarizing controls.", "status": "info"},
-                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): finance_control_policy.pdf.", "status": "success"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): finance_control_policy.pdf.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The finance sources align on delegated approval authority and audit-ready release controls.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The combined finance evidence supports approval validation first, then audit-traceable release execution.", "status": "success"},
                                 {"label": "Evidence Review", "detail": "The combined evidence supports approval-gated release and audit traceability.", "status": "success"},
                                 {"label": "Generate", "detail": "Generated the final financial risk report from 3 chunk(s).", "status": "success"},
                             ],
@@ -312,20 +415,58 @@ class DashboardResponse(BaseModel):
                     "execution": {
                         "workflow_backend": "query_pipeline",
                         "agent_type": "medical_qa",
-                        "provider_mode": "fallback",
-                        "provider_model": "",
-                        "used_fallback": True,
-                        "tool_calls": 0,
-                        "agent_loop": "retrieve_generate",
-                        "plan": None,
-                        "inspection": None,
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "persistent chest pain red flags escalation guidance",
+                            "max_results": 3,
+                            "rationale": "The agent refined retrieval toward red-flag escalation evidence before final clinical guidance.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The clinical sources align on persistent chest pain as a red-flag pattern that warrants escalation.",
+                            "compared_sources": ["clinical_guide.pdf", "triage_notes.txt"],
+                            "consensus_points": ["Persistent chest pain needs clinician escalation."],
+                            "conflicts": [],
+                            "symptoms": ["chest pain", "persistent discomfort"],
+                            "red_flags": ["persistent chest pain", "worsening symptoms"],
+                            "escalation_criteria": ["ongoing pain despite rest", "progressive severity"],
+                            "care_constraints": ["not a final diagnosis", "contraindications must be reviewed"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The clinical evidence supports urgent escalation for persistent chest pain and cautious contraindication review.",
+                            "key_points": ["Escalate persistent chest pain.", "Review contraindications before applying medication guidance."],
+                            "cited_sources": ["clinical_guide.pdf", "triage_notes.txt"],
+                            "symptom_summary": ["Persistent chest pain is the dominant symptom pattern."],
+                            "escalation_path": ["Escalate for urgent clinician review", "Avoid relying on self-management alone"],
+                            "patient_safety_notes": ["Clinical review is required before acting on medication advice"],
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The medical evidence supports symptom escalation and safety caveats.",
+                        },
                         "agent_trace": {
-                            "planned_query": "",
-                            "plan_rationale": "",
-                            "evidence_summary": "",
-                            "grounded": False,
-                            "added_sources": [],
-                            "steps": [],
+                            "planned_query": "persistent chest pain red flags escalation guidance",
+                            "plan_rationale": "The agent refined retrieval toward red-flag escalation evidence before final clinical guidance.",
+                            "comparison_summary": "The clinical sources align on persistent chest pain as a red-flag pattern that warrants escalation.",
+                            "evidence_summary": "The medical evidence supports symptom escalation and safety caveats.",
+                            "summary_digest": "The clinical evidence supports urgent escalation for persistent chest pain and cautious contraindication review.",
+                            "grounded": True,
+                            "added_sources": ["triage_notes.txt"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent refined retrieval toward red-flag escalation evidence before final clinical guidance.", "status": "info"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): triage_notes.txt.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The clinical sources align on persistent chest pain as a red-flag pattern that warrants escalation.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The clinical evidence supports urgent escalation for persistent chest pain and cautious contraindication review.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The medical evidence supports symptom escalation and safety caveats.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final medical qa report from 2 chunk(s).", "status": "success"},
+                            ],
                         },
                     },
                     "evaluation": {
@@ -364,20 +505,58 @@ class DashboardResponse(BaseModel):
                     "execution": {
                         "workflow_backend": "query_pipeline",
                         "agent_type": "banking_assistant",
-                        "provider_mode": "fallback",
-                        "provider_model": "",
-                        "used_fallback": True,
-                        "tool_calls": 0,
-                        "agent_loop": "retrieve_generate",
-                        "plan": None,
-                        "inspection": None,
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
+                        "plan": {
+                            "should_retrieve": True,
+                            "search_query": "duplicate debit complaint transaction reference fraud review",
+                            "max_results": 3,
+                            "rationale": "The agent refined retrieval toward transaction validation and fraud follow-up evidence.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The banking sources align on transaction-reference review first, followed by customer impact checks and fraud screening.",
+                            "compared_sources": ["transactions.csv", "atm_notice.txt"],
+                            "consensus_points": ["Transaction reference validation is required first."],
+                            "conflicts": [],
+                            "transaction_signals": ["duplicate debit", "failed ATM cash withdrawal"],
+                            "customer_impact_checks": ["confirm debit status", "check whether cash was dispensed"],
+                            "fraud_indicators": ["unexpected repeat debits", "unrecognized ATM usage"],
+                            "next_actions": ["capture transaction reference", "escalate fraud review if indicators persist"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The banking evidence supports transaction validation, clear customer communication, and fraud escalation where suspicious debit patterns remain.",
+                            "key_points": ["Validate the transaction trail first.", "Escalate suspicious repeat debits."],
+                            "cited_sources": ["transactions.csv", "atm_notice.txt"],
+                            "service_actions": ["Log the complaint with transaction reference", "Check the ATM reversal window"],
+                            "customer_message_points": ["Explain review status clearly", "Set expectation for reversal or escalation timing"],
+                            "fraud_follow_ups": ["Review suspicious repeat debit pattern", "Confirm whether card usage was authorized"],
+                        },
+                        "inspection": {
+                            "grounded": True,
+                            "summary": "The banking evidence supports transaction validation, customer communication, and fraud follow-up.",
+                        },
                         "agent_trace": {
-                            "planned_query": "",
-                            "plan_rationale": "",
-                            "evidence_summary": "",
-                            "grounded": False,
-                            "added_sources": [],
-                            "steps": [],
+                            "planned_query": "duplicate debit complaint transaction reference fraud review",
+                            "plan_rationale": "The agent refined retrieval toward transaction validation and fraud follow-up evidence.",
+                            "comparison_summary": "The banking sources align on transaction-reference review first, followed by customer impact checks and fraud screening.",
+                            "evidence_summary": "The banking evidence supports transaction validation, customer communication, and fraud follow-up.",
+                            "summary_digest": "The banking evidence supports transaction validation, clear customer communication, and fraud escalation where suspicious debit patterns remain.",
+                            "grounded": True,
+                            "added_sources": ["atm_notice.txt"],
+                            "steps": [
+                                {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
+                                {"label": "Plan", "detail": "The agent refined retrieval toward transaction validation and fraud follow-up evidence.", "status": "info"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): atm_notice.txt.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The banking sources align on transaction-reference review first, followed by customer impact checks and fraud screening.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The banking evidence supports transaction validation, clear customer communication, and fraud escalation where suspicious debit patterns remain.", "status": "success"},
+                                {"label": "Evidence Review", "detail": "The banking evidence supports transaction validation, customer communication, and fraud follow-up.", "status": "success"},
+                                {"label": "Generate", "detail": "Generated the final banking assistant report from 2 chunk(s).", "status": "success"},
+                            ],
                         },
                     },
                     "evaluation": {
@@ -416,16 +595,36 @@ class DashboardResponse(BaseModel):
                     "execution": {
                         "workflow_backend": "query_pipeline",
                         "agent_type": "automotive",
-                        "provider_mode": "fallback",
-                        "provider_model": "",
-                        "used_fallback": True,
-                        "tool_calls": 1,
-                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
                         "plan": {
                             "should_retrieve": True,
                             "search_query": "dtc brake inspection corrective action",
                             "max_results": 2,
                             "rationale": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The automotive sources align on confirming the DTC first, checking the brake subsystem, and completing safety inspections before repair.",
+                            "compared_sources": ["service_manual.txt", "dtc_fault_codes.csv"],
+                            "consensus_points": ["Validate the DTC before replacing parts."],
+                            "conflicts": [],
+                            "fault_signals": ["P0420", "brake warning"],
+                            "subsystem_risks": ["brake subsystem", "emissions control"],
+                            "repair_prerequisites": ["confirm DTC", "inspect pads and rotors"],
+                            "safety_checks": ["verify braking response", "review service-condition checks before release"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The automotive evidence supports DTC validation first, targeted brake inspection next, and safety confirmation before vehicle release.",
+                            "key_points": ["Validate the DTC.", "Inspect brake hardware before replacement."],
+                            "cited_sources": ["service_manual.txt", "dtc_fault_codes.csv"],
+                            "diagnosis_summary": ["P0420 and brake warning need confirmation against diagnostic steps."],
+                            "repair_plan": ["Confirm the DTC", "Inspect brake pads and rotors", "Apply maintenance checks before closure"],
+                            "vehicle_safety_notes": ["Verify braking response before return to service"],
                         },
                         "inspection": {
                             "grounded": True,
@@ -434,13 +633,17 @@ class DashboardResponse(BaseModel):
                         "agent_trace": {
                             "planned_query": "dtc brake inspection corrective action",
                             "plan_rationale": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.",
+                            "comparison_summary": "The automotive sources align on confirming the DTC first, checking the brake subsystem, and completing safety inspections before repair.",
                             "evidence_summary": "The evidence supports DTC validation before component replacement.",
+                            "summary_digest": "The automotive evidence supports DTC validation first, targeted brake inspection next, and safety confirmation before vehicle release.",
                             "grounded": True,
                             "added_sources": ["dtc_fault_codes.csv"],
                             "steps": [
                                 {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
                                 {"label": "Plan", "detail": "The agent narrowed retrieval toward diagnostic and brake-specific action guidance.", "status": "info"},
-                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): dtc_fault_codes.csv.", "status": "success"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): dtc_fault_codes.csv.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The automotive sources align on confirming the DTC first, checking the brake subsystem, and completing safety inspections before repair.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The automotive evidence supports DTC validation first, targeted brake inspection next, and safety confirmation before vehicle release.", "status": "success"},
                                 {"label": "Evidence Review", "detail": "The evidence supports DTC validation before component replacement.", "status": "success"},
                                 {"label": "Generate", "detail": "Generated the final automotive report from 2 chunk(s).", "status": "success"},
                             ],
@@ -482,16 +685,36 @@ class DashboardResponse(BaseModel):
                     "execution": {
                         "workflow_backend": "query_pipeline",
                         "agent_type": "manufacturing",
-                        "provider_mode": "fallback",
-                        "provider_model": "",
-                        "used_fallback": True,
-                        "tool_calls": 1,
-                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
                         "plan": {
                             "should_retrieve": True,
                             "search_query": "manufacturing defect containment restart approval",
                             "max_results": 2,
                             "rationale": "The agent refined toward restart controls and containment evidence.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The manufacturing sources align on defect containment, SOP validation, and quality-approved restart before resuming the line.",
+                            "compared_sources": ["quality_incident.txt", "sop_guidelines.md"],
+                            "consensus_points": ["Containment must precede restart."],
+                            "conflicts": [],
+                            "defect_signals": ["quality defect", "deviation"],
+                            "line_impact": ["line restart blocked", "throughput disruption"],
+                            "containment_actions": ["isolate affected lot", "assign corrective-action owner"],
+                            "restart_gates": ["validate SOP step", "confirm quality approval before restart"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The manufacturing evidence supports immediate containment, SOP confirmation, and quality-approved restart only after corrective ownership is clear.",
+                            "key_points": ["Contain the affected material.", "Require quality approval before restart."],
+                            "cited_sources": ["quality_incident.txt", "sop_guidelines.md"],
+                            "containment_summary": ["The affected lot should be isolated and tracked."],
+                            "production_actions": ["Validate the current step against SOP", "Hold restart until corrective ownership is assigned"],
+                            "quality_follow_ups": ["Confirm root-cause ownership", "Verify restart approval evidence"],
                         },
                         "inspection": {
                             "grounded": True,
@@ -500,13 +723,17 @@ class DashboardResponse(BaseModel):
                         "agent_trace": {
                             "planned_query": "manufacturing defect containment restart approval",
                             "plan_rationale": "The agent refined toward restart controls and containment evidence.",
+                            "comparison_summary": "The manufacturing sources align on defect containment, SOP validation, and quality-approved restart before resuming the line.",
                             "evidence_summary": "The retrieved material supports containment and approval before restart.",
+                            "summary_digest": "The manufacturing evidence supports immediate containment, SOP confirmation, and quality-approved restart only after corrective ownership is clear.",
                             "grounded": True,
                             "added_sources": ["quality_incident.txt"],
                             "steps": [
                                 {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
                                 {"label": "Plan", "detail": "The agent refined toward restart controls and containment evidence.", "status": "info"},
-                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): quality_incident.txt.", "status": "success"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): quality_incident.txt.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The manufacturing sources align on defect containment, SOP validation, and quality-approved restart before resuming the line.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The manufacturing evidence supports immediate containment, SOP confirmation, and quality-approved restart only after corrective ownership is clear.", "status": "success"},
                                 {"label": "Evidence Review", "detail": "The retrieved material supports containment and approval before restart.", "status": "success"},
                                 {"label": "Generate", "detail": "Generated the final manufacturing report from 2 chunk(s).", "status": "success"},
                             ],
@@ -548,16 +775,36 @@ class DashboardResponse(BaseModel):
                     "execution": {
                         "workflow_backend": "query_pipeline",
                         "agent_type": "ecommerce",
-                        "provider_mode": "fallback",
-                        "provider_model": "",
-                        "used_fallback": True,
-                        "tool_calls": 1,
-                        "agent_loop": "plan_retrieve_inspect_generate",
+                        "provider_mode": "llm",
+                        "provider_model": "gpt-4.1-mini",
+                        "used_fallback": False,
+                        "tool_calls": 3,
+                        "agent_loop": "plan_retrieve_compare_summarize_inspect_generate",
                         "plan": {
                             "should_retrieve": True,
                             "search_query": "refund eligibility delayed shipment review",
                             "max_results": 2,
                             "rationale": "The agent refined toward refund and delay evidence before answering support actions.",
+                            "compare_sources": True,
+                            "summarize_evidence": True,
+                        },
+                        "comparison": {
+                            "summary": "The ecommerce sources align on delayed-shipment refund review, policy-window constraints, and stock-aware resolution handling.",
+                            "compared_sources": ["customer_issue.txt", "return_policy.md", "orders.csv"],
+                            "consensus_points": ["Refund handling depends on policy window and shipment state."],
+                            "conflicts": [],
+                            "order_signals": ["delayed shipment", "refund requested"],
+                            "policy_constraints": ["7-day exchange window", "refund review required before approval"],
+                            "fulfillment_risks": ["shipment delay", "inventory-dependent replacement path"],
+                            "customer_resolution_actions": ["validate policy eligibility", "confirm shipment status before promising resolution"],
+                        },
+                        "evidence_summary": {
+                            "summary": "The ecommerce evidence supports validating refund eligibility against the return window, checking shipment status, and using inventory-aware resolution steps.",
+                            "key_points": ["Refund approval depends on policy eligibility.", "Shipment status must be confirmed before resolution."],
+                            "cited_sources": ["customer_issue.txt", "return_policy.md", "orders.csv"],
+                            "refund_basis": ["Return policy defines eligibility window.", "Delayed shipment alone does not bypass policy review."],
+                            "resolution_plan": ["Validate the policy window", "Confirm shipment state", "Offer exchange only if stock allows"],
+                            "inventory_notes": ["Replacement path depends on stock availability"],
                         },
                         "inspection": {
                             "grounded": True,
@@ -566,13 +813,17 @@ class DashboardResponse(BaseModel):
                         "agent_trace": {
                             "planned_query": "refund eligibility delayed shipment review",
                             "plan_rationale": "The agent refined toward refund and delay evidence before answering support actions.",
+                            "comparison_summary": "The ecommerce sources align on delayed-shipment refund review, policy-window constraints, and stock-aware resolution handling.",
                             "evidence_summary": "The retrieved evidence supports refund validation against delay and policy windows.",
+                            "summary_digest": "The ecommerce evidence supports validating refund eligibility against the return window, checking shipment status, and using inventory-aware resolution steps.",
                             "grounded": True,
                             "added_sources": ["return_policy.md"],
                             "steps": [
                                 {"label": "Initial Retrieval", "detail": "Started with 1 retrieved evidence chunk(s).", "status": "info"},
                                 {"label": "Plan", "detail": "The agent refined toward refund and delay evidence before answering support actions.", "status": "info"},
-                                {"label": "Tool Call", "detail": "Retrieve tool added 1 source(s): return_policy.md.", "status": "success"},
+                                {"label": "Retrieve Sources", "detail": "Retrieve tool added 1 source(s): return_policy.md.", "status": "success"},
+                                {"label": "Compare Sources", "detail": "The ecommerce sources align on delayed-shipment refund review, policy-window constraints, and stock-aware resolution handling.", "status": "success"},
+                                {"label": "Summarize Evidence", "detail": "The ecommerce evidence supports validating refund eligibility against the return window, checking shipment status, and using inventory-aware resolution steps.", "status": "success"},
                                 {"label": "Evidence Review", "detail": "The retrieved evidence supports refund validation against delay and policy windows.", "status": "success"},
                                 {"label": "Generate", "detail": "Generated the final ecommerce report from 2 chunk(s).", "status": "success"},
                             ],
@@ -583,6 +834,22 @@ class DashboardResponse(BaseModel):
                         "has_sources": True,
                         "has_recommendations": True,
                         "issues": [],
+                        "graph_state_score": 100,
+                        "graph_state_expected_fields": [
+                            "comparison.order_signals",
+                            "comparison.policy_constraints",
+                            "comparison.customer_resolution_actions",
+                            "evidence_summary.refund_basis",
+                            "evidence_summary.resolution_plan",
+                        ],
+                        "graph_state_present_fields": [
+                            "comparison.order_signals",
+                            "comparison.policy_constraints",
+                            "comparison.customer_resolution_actions",
+                            "evidence_summary.refund_basis",
+                            "evidence_summary.resolution_plan",
+                        ],
+                        "graph_state_missing_fields": [],
                     },
                 },
             ]
@@ -675,6 +942,58 @@ class SourceListResponse(BaseModel):
     sources: List[SourceRecord]
 
 
+class LLMProviderRecord(BaseModel):
+    provider_id: str
+    label: str
+    description: str
+    available: bool
+    configured: bool = False
+    reachable: bool = False
+    health_message: str = ""
+    default_model: str = ""
+    models: List[str] = Field(default_factory=list)
+    supports_custom_model: bool = True
+
+
+class LLMProviderCatalogResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "default_provider_id": "auto",
+                "providers": [
+                    {
+                        "provider_id": "auto",
+                        "label": "Auto",
+                        "description": "Use the first configured provider in the fallback chain.",
+                        "available": True,
+                        "configured": True,
+                        "reachable": True,
+                        "health_message": "Automatic provider resolution is always available.",
+                        "default_model": "",
+                        "models": [],
+                        "supports_custom_model": False,
+                    },
+                    {
+                        "provider_id": "openai",
+                        "label": "OpenAI",
+                        "description": "Uses the native OpenAI Responses API integration.",
+                        "available": True,
+                        "configured": True,
+                        "reachable": True,
+                        "health_message": "Provider responded to the health check.",
+                        "default_model": "gpt-5-mini",
+                        "models": ["gpt-5-mini", "gpt-5.1", "gpt-4.1-mini"],
+                        "supports_custom_model": True,
+                    },
+                ],
+            }
+        }
+    )
+
+    default_provider_id: str = "auto"
+    providers: List[LLMProviderRecord]
+
+
 class UploadSourceResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -763,6 +1082,7 @@ class QueryRequest(BaseModel):
                     "retrieval_mode": "source",
                     "source_id": "sample:telecom_security:telecom_incident.txt",
                     "domain": "telecom_security",
+                    "llm_provider": "auto",
                     "max_results": 2,
                 },
                 {
@@ -770,6 +1090,8 @@ class QueryRequest(BaseModel):
                     "retrieval_mode": "source",
                     "document_path": "test_data/telecom_incident.txt",
                     "domain": "telecom_security",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-5-mini",
                     "max_results": 3,
                 },
                 {
@@ -841,6 +1163,8 @@ class QueryRequest(BaseModel):
         min_length=1,
         examples=["telecom_security"],
     )
+    llm_provider: str = Field(default="auto", min_length=1, examples=["auto"])
+    llm_model: Optional[str] = Field(default=None, min_length=1, examples=["gpt-5-mini"])
     max_results: int = Field(default=3, ge=1, le=10, examples=[2])
 
     @model_validator(mode="after")

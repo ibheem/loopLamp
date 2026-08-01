@@ -1,9 +1,11 @@
 from base64 import b64decode
 from io import BytesIO
+import logging
 import os
 from pathlib import Path
 import zipfile
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Path as ApiPath
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,6 +13,7 @@ from backend.core.models import (
     DashboardResponse,
     DeleteSourceResponse,
     ErrorResponse,
+    LLMProviderCatalogResponse,
     QueryRequest,
     QueryResponse,
     ReindexSourceResponse,
@@ -22,6 +25,10 @@ from backend.services.dashboard_transformer import build_dashboard_response
 from backend.services.source_registry import SourceRegistryService
 from backend.workflows.query_pipeline import QueryPipeline
 
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="loopLamp API",
     description=(
@@ -32,6 +39,7 @@ app = FastAPI(
     version="0.1.0",
     openapi_tags=[
         {"name": "System", "description": "Health and service metadata."},
+        {"name": "LLM", "description": "Inspect configured LLM providers and model choices."},
         {"name": "Sources", "description": "Browse, upload, and delete reusable source documents."},
         {"name": "Reports", "description": "Generate structured domain reports from saved or local sources."},
         {"name": "Dashboard", "description": "Build dashboard-friendly payloads for the frontend."},
@@ -74,6 +82,7 @@ def validate_upload_content(filename: str, content: bytes):
 @app.on_event("startup")
 def startup_source_sync():
     run_startup_source_sync()
+    pipeline.provider_registry.log_startup_health()
 
 
 @app.get(
@@ -83,6 +92,20 @@ def startup_source_sync():
 )
 def root():
     return {"message": "Agentic System Backend Ready", "workflow": "query_pipeline"}
+
+
+@app.get(
+    "/llm/providers",
+    response_model=LLMProviderCatalogResponse,
+    summary="List configured LLM providers",
+    description="Returns the selectable provider catalog for request-level LLM choice in the UI or API clients.",
+    tags=["LLM"],
+)
+def list_llm_providers():
+    return LLMProviderCatalogResponse(
+        default_provider_id=pipeline.provider_registry.default_provider_id(),
+        providers=pipeline.provider_registry.list_provider_records(),
+    )
 
 
 @app.get(

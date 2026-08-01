@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from backend.core.documents import Document
 from backend.core.models import DomainReport
-from backend.services.llm_provider import EvidenceReview, RetrievalPlan
+from backend.services.llm_provider import EvidenceReview, EvidenceSummary, RetrievalPlan, SourceComparison
 
 
 RetrieveTool = Callable[[str, int], List[Document]]
@@ -42,8 +42,23 @@ class DomainAgent(ABC):
     def inspect_evidence(self, query: str, context_documents: List[Document]) -> Optional[EvidenceReview]:
         return None
 
+    def compare_sources(self, query: str, context_documents: List[Document]) -> Optional[SourceComparison]:
+        return None
+
+    def summarize_evidence(self, query: str, context_documents: List[Document]) -> Optional[EvidenceSummary]:
+        return None
+
     def generate_report(self, query: str, context_documents: List[Document]) -> DomainReport:
         return self.run(query, context_documents)
+
+    def generate_report_from_state(
+        self,
+        query: str,
+        context_documents: List[Document],
+        comparison: Optional[SourceComparison] = None,
+        evidence_summary: Optional[EvidenceSummary] = None,
+    ) -> DomainReport:
+        return self.generate_report(query, context_documents)
 
     def runtime_metadata(self) -> Dict[str, object]:
         return {
@@ -56,7 +71,9 @@ class DomainAgent(ABC):
             "agent_trace": {
                 "planned_query": "",
                 "plan_rationale": "",
+                "comparison_summary": "",
                 "evidence_summary": "",
+                "summary_digest": "",
                 "grounded": False,
                 "added_sources": [],
                 "steps": [],
