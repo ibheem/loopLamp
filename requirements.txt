@@ -14,7 +14,8 @@ build==1.4.4
 certifi==2026.7.22
 charset-normalizer==3.4.9
 chromadb==1.5.9
-click==8.1.8
+# Keep unpinned so pip can satisfy transitive CLI dependencies
+click
 colorama==0.4.6
 coloredlogs==15.0.1
 dataclasses-json==0.6.7
@@ -106,6 +107,7 @@ pydantic-settings==2.11.0
 pydantic_core==2.46.4
 Pygments==2.20.0
 pypdf==6.14.2
+qdrant-client==1.15.1
 PyPika==0.51.1
 pyproject_hooks==1.2.0
 pytest==8.4.2
@@ -141,7 +143,8 @@ tomli==2.4.1
 torch==2.8.0
 tqdm==4.69.1
 transformers==4.57.6
-typer==0.23.2
+# Keep unpinned so pip can choose a Python-compatible version
+typer
 typing-inspect==0.9.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
@@ -149,7 +152,7 @@ tzdata==2026.3
 urllib3==2.6.3
 uuid_utils==0.15.0
 uvicorn==0.39.0
-uvloop==0.22.1
+uvloop==0.22.1; platform_system != "Windows"
 watchfiles==1.1.1
 websocket-client==1.9.0
 websockets==15.0.1

@@ -1,0 +1,137 @@
+{
+  "upload:20260728120649_upload_note.txt": {
+    "source_id": "upload:20260728120649_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728120649_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:06:49.254081+00:00"
+  },
+  "upload:20260728120705_upload_note.txt": {
+    "source_id": "upload:20260728120705_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728120705_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:07:05.486563+00:00"
+  },
+  "upload:20260728121543_HealthCareMagic-100k.json": {
+    "source_id": "upload:20260728121543_HealthCareMagic-100k.json",
+    "label": "HealthCareMagic-100k.json",
+    "domain": "medical_qa",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728121543_HealthCareMagic-100k.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:15:43.538801+00:00"
+  },
+  "upload:20260728121601_1727242783639.pdf": {
+    "source_id": "upload:20260728121601_1727242783639.pdf",
+    "label": "1727242783639.pdf",
+    "domain": "medical_qa",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728121601_1727242783639.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:16:01.710578+00:00"
+  },
+  "upload:20260728122356_upload_note.txt": {
+    "source_id": "upload:20260728122356_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728122356_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:23:56.671937+00:00"
+  },
+  "upload:20260728122517_upload_note.txt": {
+    "source_id": "upload:20260728122517_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728122517_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T12:25:17.504736+00:00"
+  },
+  "upload:20260728131148_upload_note.txt": {
+    "source_id": "upload:20260728131148_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728131148_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:11:48.933343+00:00"
+  },
+  "upload:20260728131950_ecommerce-full-100products.pdf": {
+    "source_id": "upload:20260728131950_ecommerce-full-100products.pdf",
+    "label": "ecommerce-full-100products.pdf",
+    "domain": "telecom_security",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728131950_ecommerce-full-100products.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:19:50.516897+00:00"
+  },
+  "upload:20260728135123_1739770105701.pdf": {
+    "source_id": "upload:20260728135123_1739770105701.pdf",
+    "label": "1739770105701.pdf",
+    "domain": "telecom_security",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728135123_1739770105701.pdf",
+    "file_type": ".pdf",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T13:51:23.759764+00:00"
+  },
+  "upload:20260728150425_upload_note.txt": {
+    "source_id": "upload:20260728150425_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.122954+00:00"
+  },
+  "upload:20260728150425_orders.csv": {
+    "source_id": "upload:20260728150425_orders.csv",
+    "label": "orders.csv",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_orders.csv",
+    "file_type": ".csv",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.124137+00:00"
+  },
+  "upload:20260728150425_issue.json": {
+    "source_id": "upload:20260728150425_issue.json",
+    "label": "issue.json",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150425_issue.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:25.124818+00:00"
+  },
+  "upload:20260728150434_upload_note.txt": {
+    "source_id": "upload:20260728150434_upload_note.txt",
+    "label": "upload_note.txt",
+    "domain": "general",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_upload_note.txt",
+    "file_type": ".txt",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.870703+00:00"
+  },
+  "upload:20260728150434_orders.csv": {
+    "source_id": "upload:20260728150434_orders.csv",
+    "label": "orders.csv",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_orders.csv",
+    "file_type": ".csv",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.871385+00:00"
+  },
+  "upload:20260728150434_issue.json": {
+    "source_id": "upload:20260728150434_issue.json",
+    "label": "issue.json",
+    "domain": "ecommerce",
+    "path": "/Users/prashant/capstone/loopLamp/uploaded_sources/20260728150434_issue.json",
+    "file_type": ".json",
+    "origin": "upload",
+    "uploaded_at": "2026-07-28T15:04:34.872008+00:00"
+  }
+}
