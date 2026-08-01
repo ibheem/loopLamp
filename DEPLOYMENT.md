@@ -106,6 +106,13 @@ http://127.0.0.1:8000
 
 These are the active environment variables used by the app today.
 
+Quick start:
+
+```bash
+cd loopLamp
+cp .env.example .env
+```
+
 ### Backend
 
 #### `OPENAI_API_KEY`
@@ -126,6 +133,27 @@ Example:
 export OPENAI_API_KEY="your-key-here"
 uvicorn backend.app.main:app --reload
 ```
+
+#### Other provider variables
+
+Optional.
+
+If you want multi-provider selection in the UI, configure one or more of:
+
+- `OPENROUTER_API_KEY`
+- `GROQ_API_KEY`
+- `TOGETHER_API_KEY`
+- `LOOPLAMP_ENABLE_OLLAMA=true` for local Ollama
+
+Each provider also has matching optional model/base-URL values in `.env.example`.
+
+For Docker Compose with Ollama running on your Mac host, set:
+
+```text
+OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+```
+
+Using `http://127.0.0.1:11434/v1` from inside the backend container will not reach the host Ollama process.
 
 #### `LOOPLAMP_STARTUP_SOURCE_SYNC`
 
@@ -170,6 +198,8 @@ Example:
 cd loopLamp/frontend
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run dev
 ```
+
+If you prefer file-based frontend config in local development, place the same value in `frontend/.env.local`.
 
 For Docker Compose, the same variables can live in `.env`:
 

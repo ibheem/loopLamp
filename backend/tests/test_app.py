@@ -12,6 +12,7 @@ from backend.app.main import (
     app,
     dashboard_report,
     delete_source,
+    list_llm_providers,
     list_sources,
     query_documents,
     reindex_source,
@@ -119,6 +120,17 @@ def test_list_sources_returns_known_domains():
     assert any(source.domain == "telecom_security" for source in response.sources)
 
 
+def test_list_llm_providers_returns_catalog():
+    response = list_llm_providers()
+
+    assert response.default_provider_id == "auto"
+    assert any(provider.provider_id == "auto" for provider in response.providers)
+    assert any(provider.provider_id == "openai" for provider in response.providers)
+    auto_provider = next(provider for provider in response.providers if provider.provider_id == "auto")
+    assert auto_provider.configured is True
+    assert auto_provider.reachable is True
+
+
 def test_upload_source_returns_record():
     response = upload_source(
         UploadSourceRequest(
@@ -222,6 +234,23 @@ def test_run_startup_source_sync_calls_pipeline(monkeypatch):
     result = run_startup_source_sync()
 
     assert result == {"indexed_count": 4, "failed_count": 1}
+
+
+def test_startup_source_sync_logs_provider_health(monkeypatch):
+    calls = {"sync": 0, "health": 0}
+
+    monkeypatch.setenv("LOOPLAMP_STARTUP_SOURCE_SYNC", "false")
+    monkeypatch.setattr(main_module.pipeline, "sync_saved_sources", lambda: calls.__setitem__("sync", calls["sync"] + 1))
+    monkeypatch.setattr(
+        main_module.pipeline.provider_registry,
+        "log_startup_health",
+        lambda: calls.__setitem__("health", calls["health"] + 1),
+    )
+
+    startup_source_sync()
+
+    assert calls["sync"] == 0
+    assert calls["health"] == 1
 
 
 def test_run_startup_source_sync_can_be_disabled(monkeypatch):

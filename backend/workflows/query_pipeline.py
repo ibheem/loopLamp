@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from backend.agents.automotive import AutomotiveAgent
 from backend.agents.banking_assistant import BankingAssistantAgent
@@ -13,6 +13,7 @@ from backend.agents.tool_calling_report_agent import ToolCallingReportAgent
 from backend.core.models import ExecutionMetadata, QueryRequest, QueryResponse, SourceDocument
 from backend.core.documents import Document
 from backend.services.document_ingestion import DocumentIngestionService
+from backend.services.llm_registry import LLMProviderRegistry
 from backend.services.llm_provider import OpenAIResponsesReportProvider
 from backend.services.report_evaluator import evaluate_report
 from backend.services.retrieval import RetrievalService
@@ -28,49 +29,25 @@ class QueryPipeline:
         self.ingestion_service = DocumentIngestionService()
         self.retrieval_service = RetrievalService()
         self.source_registry = SourceRegistryService()
+        self.provider_registry = LLMProviderRegistry()
         self.workflow = QueryGraphWorkflow(self.retrieval_service)
-        telecom_fallback = TelecomSecurityAgent()
-        finance_fallback = FinancialRiskAgent()
-        medical_fallback = MedicalQAAgent()
-        banking_fallback = BankingAssistantAgent()
-        automotive_fallback = AutomotiveAgent()
-        manufacturing_fallback = ManufacturingAgent()
-        ecommerce_fallback = EcommerceAgent()
-        telecom_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=telecom_fallback,
-            domain_name="telecom_security",
-        )
-        finance_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=finance_fallback,
-            domain_name="financial_risk",
-        )
-        medical_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=medical_fallback,
-            domain_name="medical_qa",
-        )
-        banking_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=banking_fallback,
-            domain_name="banking_assistant",
-        )
-        automotive_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=automotive_fallback,
-            domain_name="automotive",
-        )
-        manufacturing_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=manufacturing_fallback,
-            domain_name="manufacturing",
-        )
-        ecommerce_agent = ToolCallingReportAgent(
-            provider=OpenAIResponsesReportProvider(),
-            fallback_agent=ecommerce_fallback,
-            domain_name="ecommerce",
-        )
+        self.fallback_agents = {
+            "telecom_security": TelecomSecurityAgent(),
+            "financial_risk": FinancialRiskAgent(),
+            "medical_qa": MedicalQAAgent(),
+            "banking_assistant": BankingAssistantAgent(),
+            "automotive": AutomotiveAgent(),
+            "manufacturing": ManufacturingAgent(),
+            "ecommerce": EcommerceAgent(),
+            "general": TelecomSecurityAgent(),
+        }
+        telecom_agent = self._build_tool_calling_agent("telecom_security")
+        finance_agent = self._build_tool_calling_agent("financial_risk")
+        medical_agent = self._build_tool_calling_agent("medical_qa")
+        banking_agent = self._build_tool_calling_agent("banking_assistant")
+        automotive_agent = self._build_tool_calling_agent("automotive")
+        manufacturing_agent = self._build_tool_calling_agent("manufacturing")
+        ecommerce_agent = self._build_tool_calling_agent("ecommerce")
         self.agents = {
             "telecom_security": telecom_agent,
             "financial_risk": finance_agent,
@@ -83,7 +60,7 @@ class QueryPipeline:
         }
 
     def run(self, request: QueryRequest) -> QueryResponse:
-        agent = self.agents.get(request.domain)
+        agent = self._resolve_agent(request)
         if agent is None:
             supported = ", ".join(sorted(self.agents))
             raise ValueError(f"Unsupported domain '{request.domain}'. Supported domains: {supported}")
@@ -107,22 +84,28 @@ class QueryPipeline:
                 )
 
         execution = self.workflow.run(agent, vector_db, request)
-        evaluation = evaluate_report(execution.answer)
         runtime_metadata = getattr(execution, "runtime_metadata", None) or (
             agent.runtime_metadata() if hasattr(agent, "runtime_metadata") else {}
         )
         execution_metadata = ExecutionMetadata(
             workflow_backend=self.workflow.backend_name,
             agent_type=runtime_metadata.get("agent_type", agent.__class__.__name__),
+            requested_provider=(request.llm_provider or "auto").strip(),
+            requested_model=(request.llm_model or "").strip(),
             provider_mode=runtime_metadata.get("provider_mode", "deterministic"),
             provider_model=runtime_metadata.get("provider_model", ""),
+            llm_generated=runtime_metadata.get("used_fallback", "false") != "true"
+            and runtime_metadata.get("provider_mode", "deterministic") not in {"fallback", "deterministic"},
             used_fallback=runtime_metadata.get("used_fallback", "false") == "true",
             tool_calls=int(runtime_metadata.get("tool_calls", 0) or 0),
             agent_loop=str(runtime_metadata.get("agent_loop", "retrieve_generate")),
             plan=runtime_metadata.get("plan"),
+            comparison=runtime_metadata.get("comparison"),
+            evidence_summary=runtime_metadata.get("evidence_summary"),
             inspection=runtime_metadata.get("inspection"),
             agent_trace=runtime_metadata.get("agent_trace") or {},
         )
+        evaluation = evaluate_report(execution.answer, execution=execution_metadata)
         logger.info(
             "query_pipeline_complete domain=%s backend=%s provider_mode=%s model=%s attempts=%s sources=%s reflected=%s issues=%s",
             agent.name,
@@ -147,6 +130,39 @@ class QueryPipeline:
                 SourceDocument(content=document.page_content, metadata=document.metadata)
                 for document in execution.sources
             ],
+        )
+
+    def _build_tool_calling_agent(
+        self,
+        domain: str,
+        provider_id: str = "auto",
+        model_override: Optional[str] = None,
+    ) -> ToolCallingReportAgent:
+        provider = (
+            OpenAIResponsesReportProvider()
+            if provider_id == "openai" and not model_override
+            else self.provider_registry.create_provider(provider_id=provider_id, model_override=model_override)
+        )
+        return ToolCallingReportAgent(
+            provider=provider,
+            fallback_agent=self.fallback_agents[domain],
+            domain_name=domain,
+        )
+
+    def _resolve_agent(self, request: QueryRequest):
+        base_agent = self.agents.get(request.domain)
+        if base_agent is None:
+            return None
+
+        selected_provider = (request.llm_provider or "auto").strip()
+        selected_model = (request.llm_model or "").strip()
+        if selected_provider == "auto" and not selected_model:
+            return base_agent
+
+        return self._build_tool_calling_agent(
+            domain=request.domain,
+            provider_id=selected_provider,
+            model_override=selected_model or None,
         )
 
     def _resolve_request_documents(self, request: QueryRequest) -> Tuple[List[Document], str, Dict[str, int]]:

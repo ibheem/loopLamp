@@ -1,19 +1,29 @@
 "use client";
 
+import { getDomainGraphSections, getGraphSectionStatus } from "../lib/dashboard";
+
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  defaultProviderCatalog,
   defaultFormState,
   domainOptions,
   findSourceById,
+  formatProviderAvailability,
+  formatProviderReachability,
   formatQueryErrorMessage,
   formatSourceIndexStatus,
   formatUploadErrorMessage,
   formatSourceLabel,
+  getLlmFallbackWarning,
+  getProviderAvailabilityTone,
+  getProviderReachabilityTone,
+  getProviderById,
   getPreferredSourceId,
   getSourceIndexTone,
   getStatusTone,
   groupSourcesByDomain,
+  isLlmGenerated,
   retrievalModeOptions,
 } from "../lib/dashboard";
 
@@ -22,6 +32,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8
 export default function DashboardApp() {
   const [formState, setFormState] = useState(defaultFormState);
   const [sources, setSources] = useState([]);
+  const [providerCatalog, setProviderCatalog] = useState(defaultProviderCatalog);
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -38,6 +49,20 @@ export default function DashboardApp() {
   const selectedSource = useMemo(
     () => findSourceById(sources, formState.sourceId),
     [sources, formState.sourceId]
+  );
+  const selectedProvider = useMemo(
+    () =>
+      getProviderById(providerCatalog, formState.llmProvider) ||
+      getProviderById(providerCatalog, providerCatalog.default_provider_id) ||
+      defaultProviderCatalog.providers[0],
+    [providerCatalog, formState.llmProvider]
+  );
+  const configuredProviderCount = useMemo(
+    () =>
+      providerCatalog.providers.filter(
+        (provider) => provider.provider_id !== "auto" && provider.available
+      ).length,
+    [providerCatalog]
   );
 
   async function loadSources({ showRefreshing = false } = {}) {
@@ -64,15 +89,28 @@ export default function DashboardApp() {
   useEffect(() => {
     let active = true;
 
-    async function loadInitialSources() {
+    async function loadInitialState() {
       try {
-        const response = await fetch(`${API_BASE_URL}/sources`);
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.detail || "Unable to load sources.");
+        const [sourcesResponse, providersResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/sources`),
+          fetch(`${API_BASE_URL}/llm/providers`),
+        ]);
+        const [sourcesPayload, providersPayload] = await Promise.all([
+          sourcesResponse.json(),
+          providersResponse.json(),
+        ]);
+        if (!sourcesResponse.ok) {
+          throw new Error(sourcesPayload.detail || "Unable to load sources.");
         }
         if (active) {
-          setSources(payload.sources);
+          setSources(sourcesPayload.sources);
+          if (providersResponse.ok && providersPayload.providers) {
+            setProviderCatalog(providersPayload);
+            setFormState((current) => ({
+              ...current,
+              llmProvider: current.llmProvider || providersPayload.default_provider_id || "auto",
+            }));
+          }
         }
       } catch (loadError) {
         if (active) {
@@ -81,7 +119,7 @@ export default function DashboardApp() {
       }
     }
 
-    loadInitialSources();
+    loadInitialState();
     return () => {
       active = false;
     };
@@ -112,6 +150,8 @@ export default function DashboardApp() {
           retrieval_mode: formState.retrievalMode,
           source_id: formState.retrievalMode === "source" ? formState.sourceId : null,
           domain: formState.domain,
+          llm_provider: formState.llmProvider,
+          llm_model: formState.llmModel || null,
           max_results: Number(formState.maxResults),
         }),
       });
@@ -134,6 +174,17 @@ export default function DashboardApp() {
     return function onChange(event) {
       setFormState((current) => ({ ...current, [field]: event.target.value }));
     };
+  }
+
+  function handleProviderChange(event) {
+    const providerId = event.target.value;
+    const nextProvider = getProviderById(providerCatalog, providerId);
+
+    setFormState((current) => ({
+      ...current,
+      llmProvider: providerId,
+      llmModel: nextProvider?.supports_custom_model ? current.llmModel : "",
+    }));
   }
 
   function handleSourceChange(event) {
@@ -318,6 +369,44 @@ export default function DashboardApp() {
             </select>
           </label>
           <label>
+            <span>LLM Provider</span>
+            <select value={formState.llmProvider} onChange={handleProviderChange}>
+              {providerCatalog.providers.map((provider) => (
+                <option key={provider.provider_id} value={provider.provider_id}>
+                  {provider.label}
+                  {provider.available ? "" : " · not configured"}
+                </option>
+              ))}
+            </select>
+            <small className="field-hint">
+              {selectedProvider?.description || "Choose how the backend resolves the active LLM."}
+            </small>
+          </label>
+          <label>
+            <span>LLM Model</span>
+            {selectedProvider?.models?.length ? (
+              <select value={formState.llmModel} onChange={updateField("llmModel")}>
+                <option value="">Use provider default ({selectedProvider.default_model || "auto"})</option>
+                {selectedProvider.models.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={formState.llmModel}
+                onChange={updateField("llmModel")}
+                placeholder={selectedProvider?.default_model || "Use provider default"}
+                disabled={!selectedProvider?.supports_custom_model}
+              />
+            )}
+            <small className="field-hint">
+              Leave this empty to preserve the provider default and fallback chain.
+            </small>
+          </label>
+          <label>
             <span>Max Results</span>
             <input
               type="number"
@@ -383,6 +472,35 @@ export default function DashboardApp() {
             </div>
           </div>
         ) : null}
+        <div className="panel">
+          <h3>LLM Provider Status</h3>
+          <p className="hero-label">
+            Configured providers: {configuredProviderCount} · Selected: {selectedProvider?.label || "Auto"}
+          </p>
+          <div className="stack">
+            {providerCatalog.providers.map((provider) => (
+              <div className="note-card" key={provider.provider_id}>
+                <div className="note-header">
+                  <strong>{provider.label}</strong>
+                  <div className="source-meta-row">
+                    <span className={`status-pill ${getProviderAvailabilityTone(provider)}`}>
+                      {formatProviderAvailability(provider)}
+                    </span>
+                    <span className={`status-pill ${getProviderReachabilityTone(provider)}`}>
+                      {formatProviderReachability(provider)}
+                    </span>
+                  </div>
+                </div>
+                <p>{provider.description}</p>
+                <p className="hero-label">
+                  Default model: {provider.default_model || "auto"}
+                  {provider.models?.length ? ` · Choices: ${provider.models.join(", ")}` : ""}
+                </p>
+                <p className="hero-label">{provider.health_message || "No health details available."}</p>
+              </div>
+            ))}
+          </div>
+        </div>
         {uploading ? <p className="hero-label">Uploading source...</p> : null}
         {reindexing ? <p className="hero-label">Refreshing vector index for the selected source...</p> : null}
         {error ? <p className="error-banner">{error}</p> : null}
@@ -395,6 +513,21 @@ export default function DashboardApp() {
               <p className="eyebrow">Report</p>
               <h2>{dashboard.title}</h2>
               <p className="lede">{dashboard.summary}</p>
+              <p className="hero-label">
+                LLM resolution: requested {dashboard.execution.requested_provider}
+                {dashboard.execution.requested_model ? ` / ${dashboard.execution.requested_model}` : ""}
+                {" → "}
+                resolved {dashboard.execution.provider_mode}
+                {dashboard.execution.provider_model ? ` / ${dashboard.execution.provider_model}` : ""}
+                {dashboard.execution.used_fallback ? " · fallback used" : ""}
+              </p>
+              <p className="hero-label">
+                LLM generated: {isLlmGenerated(dashboard.execution) ? "yes" : "no"} ·
+                grounded by retrieval: {dashboard.execution.inspection?.grounded ? "yes" : "no"}
+              </p>
+              {getLlmFallbackWarning(dashboard.execution) ? (
+                <p className="error-banner">{getLlmFallbackWarning(dashboard.execution)}</p>
+              ) : null}
             </div>
             <span className={`status-pill ${statusTone}`}>
               {dashboard.status.level}
@@ -454,12 +587,24 @@ export default function DashboardApp() {
                   <dd>{dashboard.execution.agent_type}</dd>
                 </div>
                 <div>
+                  <dt>Requested Provider</dt>
+                  <dd>{dashboard.execution.requested_provider}</dd>
+                </div>
+                <div>
+                  <dt>Requested Model</dt>
+                  <dd>{dashboard.execution.requested_model || "provider default"}</dd>
+                </div>
+                <div>
                   <dt>Provider</dt>
                   <dd>{dashboard.execution.provider_mode}</dd>
                 </div>
                 <div>
                   <dt>Model</dt>
                   <dd>{dashboard.execution.provider_model || "fallback"}</dd>
+                </div>
+                <div>
+                  <dt>LLM Generated</dt>
+                  <dd>{isLlmGenerated(dashboard.execution) ? "yes" : "no"}</dd>
                 </div>
                 <div>
                   <dt>Workflow</dt>
@@ -480,6 +625,14 @@ export default function DashboardApp() {
                 <div>
                   <dt>Plan Needs Tool</dt>
                   <dd>{dashboard.execution.plan ? (dashboard.execution.plan.should_retrieve ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Compare Sources</dt>
+                  <dd>{dashboard.execution.plan ? (dashboard.execution.plan.compare_sources ? "yes" : "no") : "n/a"}</dd>
+                </div>
+                <div>
+                  <dt>Summarize Evidence</dt>
+                  <dd>{dashboard.execution.plan ? (dashboard.execution.plan.summarize_evidence ? "yes" : "no") : "n/a"}</dd>
                 </div>
                 <div>
                   <dt>Inspection Grounded</dt>
@@ -504,6 +657,30 @@ export default function DashboardApp() {
                   <dd>{dashboard.execution.plan?.max_results ?? "n/a"}</dd>
                 </div>
                 <div>
+                  <dt>Comparison Summary</dt>
+                  <dd>{dashboard.execution.comparison?.summary || "No structured comparison data available."}</dd>
+                </div>
+                <div>
+                  <dt>Control Themes</dt>
+                  <dd>
+                    {dashboard.execution.comparison?.control_themes?.length
+                      ? dashboard.execution.comparison.control_themes.join(", ")
+                      : "No structured control themes available."}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Evidence Synthesis</dt>
+                  <dd>{dashboard.execution.evidence_summary?.summary || "No structured evidence synthesis available."}</dd>
+                </div>
+                <div>
+                  <dt>Recommended Controls</dt>
+                  <dd>
+                    {dashboard.execution.evidence_summary?.recommended_controls?.length
+                      ? dashboard.execution.evidence_summary.recommended_controls.join(", ")
+                      : "No structured control recommendations available."}
+                  </dd>
+                </div>
+                <div>
                   <dt>Inspection Summary</dt>
                   <dd>{dashboard.execution.inspection?.summary || "No structured inspection data available."}</dd>
                 </div>
@@ -520,6 +697,14 @@ export default function DashboardApp() {
                 <div>
                   <dt>Plan Rationale</dt>
                   <dd>{dashboard.execution.agent_trace?.plan_rationale || "No retrieval refinement was needed."}</dd>
+                </div>
+                <div>
+                  <dt>Comparison</dt>
+                  <dd>{dashboard.execution.agent_trace?.comparison_summary || "No comparison summary available."}</dd>
+                </div>
+                <div>
+                  <dt>Evidence Synthesis</dt>
+                  <dd>{dashboard.execution.agent_trace?.summary_digest || "No evidence synthesis summary available."}</dd>
                 </div>
                 <div>
                   <dt>Evidence Review</dt>
@@ -553,6 +738,209 @@ export default function DashboardApp() {
                   <p className="hero-label">No agent timeline available.</p>
                 )}
               </div>
+            </article>
+
+            <article className="panel">
+              <h3>Evaluation</h3>
+              {(() => {
+                const graphScore = dashboard.evaluation?.graph_state_score ?? 0;
+                const missingFieldCount = dashboard.evaluation?.graph_state_missing_fields?.length ?? 0;
+                const contractMet = missingFieldCount === 0;
+                const toneClass = contractMet ? "evaluation-card-success" : "evaluation-card-warning";
+                const pillClass = contractMet ? "pill-success" : "pill-warning";
+                const domainSections = getDomainGraphSections(dashboard.domain);
+
+                return (
+                  <>
+                    <div className={`evaluation-banner ${toneClass}`}>
+                      <div className="note-header">
+                        <strong>Graph Contract Status</strong>
+                        <span className={`status-pill evaluation-pill ${pillClass}`}>
+                          {graphScore}%
+                        </span>
+                      </div>
+                      <p>
+                        {contractMet
+                          ? "All expected graph-state fields were populated for this domain."
+                          : `${missingFieldCount} graph field(s) still need review for this domain.`}
+                      </p>
+                    </div>
+                    <dl className="meta-list">
+                      <div>
+                        <dt>Graph-State Score</dt>
+                        <dd>
+                          <span className={`status-pill evaluation-pill ${pillClass}`}>{graphScore}%</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Contract Met</dt>
+                        <dd>
+                          <span className={`status-pill evaluation-pill ${pillClass}`}>
+                            {contractMet ? "yes" : "no"}
+                          </span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Expected Fields</dt>
+                        <dd>{dashboard.evaluation?.graph_state_expected_fields?.length ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt>Present Fields</dt>
+                        <dd>{dashboard.evaluation?.graph_state_present_fields?.length ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt>Missing Fields</dt>
+                        <dd>{missingFieldCount}</dd>
+                      </div>
+                    </dl>
+                    <div className="stack">
+                      {domainSections.length ? (
+                        <div className="note-card">
+                          <div className="note-header">
+                            <strong>Domain Graph Sections</strong>
+                            <span className="hero-label">{domainSections.length} sections</span>
+                          </div>
+                          <div className="evaluation-section-grid">
+                            {domainSections.map((section) => {
+                              const status = getGraphSectionStatus(section, dashboard.evaluation || {});
+                              const sectionPillClass = status.complete ? "pill-success" : "pill-warning";
+                              return (
+                                <div
+                                  key={section.id}
+                                  className={`evaluation-section-card ${
+                                    status.complete ? "evaluation-card-success" : "evaluation-card-warning"
+                                  }`}
+                                >
+                                  <div className="note-header">
+                                    <strong>{section.label}</strong>
+                                    <span className={`status-pill evaluation-pill ${sectionPillClass}`}>
+                                      {status.presentCount}/{status.expectedCount}
+                                    </span>
+                                  </div>
+                                  <p>
+                                    {status.missingCount === 0
+                                      ? "All expected fields are present."
+                                      : `${status.missingCount} field(s) still missing in this section.`}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className={`note-card ${toneClass}`}>
+                        <div className="note-header">
+                          <strong>Missing Graph Fields</strong>
+                          <span className={`status-pill evaluation-pill ${pillClass}`}>
+                            {contractMet ? "complete" : "needs review"}
+                          </span>
+                        </div>
+                        <p>
+                          {missingFieldCount
+                            ? dashboard.evaluation.graph_state_missing_fields.join(", ")
+                            : "All expected graph-state fields were populated for this domain."}
+                        </p>
+                      </div>
+                      <details className={`note-card evaluation-details ${toneClass}`}>
+                        <summary>
+                          {`${dashboard.domain.replace(/_/g, " ")} graph contract`}
+                        </summary>
+                    <div className="stack">
+                      {domainSections.length ? (
+                        <div className="note-card">
+                          <div className="note-header">
+                            <strong>Section Breakdown</strong>
+                            <span className="hero-label">{dashboard.domain.replace(/_/g, " ")}</span>
+                          </div>
+                          <div className="stack">
+                            {domainSections.map((section) => {
+                              const status = getGraphSectionStatus(section, dashboard.evaluation || {});
+                              const sectionFields = section.fields.filter((field) =>
+                                (dashboard.evaluation?.graph_state_expected_fields || []).includes(field)
+                              );
+
+                              return (
+                                <div key={section.id} className="note-card">
+                                  <div className="note-header">
+                                    <strong>{section.label}</strong>
+                                    <span
+                                      className={`status-pill evaluation-pill ${
+                                        status.complete ? "pill-success" : "pill-warning"
+                                      }`}
+                                    >
+                                      {status.complete ? "complete" : "needs review"}
+                                    </span>
+                                  </div>
+                                  {sectionFields.length ? (
+                                    <ul className="warning-list">
+                                      {sectionFields.map((field) => {
+                                        const isMissing = (dashboard.evaluation?.graph_state_missing_fields || []).includes(field);
+                                        return (
+                                          <li
+                                            key={`${section.id}-${field}`}
+                                            className={isMissing ? "evaluation-item-missing" : "evaluation-item-present"}
+                                          >
+                                            {field}
+                                            {isMissing ? " · missing" : " · present"}
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  ) : (
+                                    <p>No expected fields are defined for this section.</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="note-card">
+                        <div className="note-header">
+                          <strong>Expected Fields</strong>
+                              <span className="hero-label">
+                                {dashboard.evaluation?.graph_state_expected_fields?.length ?? 0}
+                              </span>
+                            </div>
+                            {(dashboard.evaluation?.graph_state_expected_fields || []).length ? (
+                              <ul className="warning-list">
+                                {dashboard.evaluation.graph_state_expected_fields.map((field) => {
+                                  const isMissing = (dashboard.evaluation?.graph_state_missing_fields || []).includes(field);
+                                  return (
+                                    <li key={field} className={isMissing ? "evaluation-item-missing" : "evaluation-item-present"}>
+                                      {field}
+                                      {isMissing ? " · missing" : " · present"}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p>No domain-specific graph contract is defined for this response.</p>
+                            )}
+                          </div>
+                          <div className="note-card">
+                            <div className="note-header">
+                              <strong>Present Fields</strong>
+                              <span className="hero-label">
+                                {dashboard.evaluation?.graph_state_present_fields?.length ?? 0}
+                              </span>
+                            </div>
+                            {(dashboard.evaluation?.graph_state_present_fields || []).length ? (
+                              <ul className="warning-list">
+                                {dashboard.evaluation.graph_state_present_fields.map((field) => (
+                                  <li key={field} className="evaluation-item-present">{field}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>No graph-state fields were populated.</p>
+                            )}
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </>
+                );
+              })()}
             </article>
           </div>
 

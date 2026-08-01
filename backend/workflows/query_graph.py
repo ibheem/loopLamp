@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from backend.core.documents import Document
 from backend.core.models import DomainReport, QueryRequest
 from backend.guards.execution import GuardedExecutionResult
-from backend.services.llm_provider import EvidenceReview, RetrievalPlan
+from backend.services.llm_provider import EvidenceReview, EvidenceSummary, RetrievalPlan, SourceComparison
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ class QueryWorkflowState:
     sources: Optional[List[Document]] = None
     report: Optional[DomainReport] = None
     plan: Optional[RetrievalPlan] = None
+    comparison: Optional[SourceComparison] = None
+    evidence_summary: Optional[EvidenceSummary] = None
     evidence_review: Optional[EvidenceReview] = None
     runtime_metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -77,8 +79,10 @@ class QueryGraphWorkflow:
         while True:
             state = self._retrieve_node(state)
             state = self._plan_node(state)
-            if self._plan_next_step(state) == "tool":
-                state = self._tool_node(state)
+            if self._plan_next_step(state) == "retrieve_sources":
+                state = self._retrieve_sources_node(state)
+            state = self._compare_sources_node(state)
+            state = self._summarize_evidence_node(state)
             state = self._inspect_node(state)
             state = self._generate_node(state)
             next_step = self._next_step(state)
@@ -90,7 +94,9 @@ class QueryGraphWorkflow:
         graph = StateGraph(dict)
         graph.add_node("retrieve", self._retrieve_payload_node)
         graph.add_node("plan", self._plan_payload_node)
-        graph.add_node("tool", self._tool_payload_node)
+        graph.add_node("retrieve_sources", self._retrieve_sources_payload_node)
+        graph.add_node("compare_sources", self._compare_sources_payload_node)
+        graph.add_node("summarize_evidence", self._summarize_evidence_payload_node)
         graph.add_node("inspect", self._inspect_payload_node)
         graph.add_node("generate", self._generate_payload_node)
         graph.add_node("reflect", self._reflect_payload_node)
@@ -100,9 +106,11 @@ class QueryGraphWorkflow:
         graph.add_conditional_edges(
             "plan",
             self._plan_payload_step,
-            {"tool": "tool", "inspect": "inspect"},
+            {"retrieve_sources": "retrieve_sources", "compare_sources": "compare_sources"},
         )
-        graph.add_edge("tool", "inspect")
+        graph.add_edge("retrieve_sources", "compare_sources")
+        graph.add_edge("compare_sources", "summarize_evidence")
+        graph.add_edge("summarize_evidence", "inspect")
         graph.add_edge("inspect", "generate")
         graph.add_conditional_edges(
             "generate",
@@ -121,6 +129,8 @@ class QueryGraphWorkflow:
             k=state.current_k,
         )
         state.plan = None
+        state.comparison = None
+        state.evidence_summary = None
         state.evidence_review = None
         begin_workflow = getattr(state.agent, "begin_workflow", None)
         if callable(begin_workflow):
@@ -135,7 +145,7 @@ class QueryGraphWorkflow:
             state.plan = None
         return state
 
-    def _tool_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+    def _retrieve_sources_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
         if state.plan is None:
             return state
         plan_query = getattr(state.plan, "search_query", "")
@@ -152,6 +162,30 @@ class QueryGraphWorkflow:
             recorder(state.request.query, prior_documents, retrieved_documents, state.sources)
         return state
 
+    def _compare_sources_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        if not self._should_compare_sources(state):
+            state.comparison = None
+            return state
+
+        comparator = getattr(state.agent, "compare_sources", None)
+        if callable(comparator):
+            state.comparison = comparator(state.request.query, state.sources or [])
+        else:
+            state.comparison = None
+        return state
+
+    def _summarize_evidence_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
+        if not self._should_summarize_evidence(state):
+            state.evidence_summary = None
+            return state
+
+        summarizer = getattr(state.agent, "summarize_evidence", None)
+        if callable(summarizer):
+            state.evidence_summary = summarizer(state.request.query, state.sources or [])
+        else:
+            state.evidence_summary = None
+        return state
+
     def _inspect_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
         inspector = getattr(state.agent, "inspect_evidence", None)
         if callable(inspector):
@@ -161,11 +195,20 @@ class QueryGraphWorkflow:
         return state
 
     def _generate_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
-        generator = getattr(state.agent, "generate_report", None)
+        generator = getattr(state.agent, "generate_report_from_state", None)
         if callable(generator):
-            state.report = generator(state.request.query, state.sources or [])
+            state.report = generator(
+                state.request.query,
+                state.sources or [],
+                comparison=state.comparison,
+                evidence_summary=state.evidence_summary,
+            )
         else:
-            state.report = state.agent.run(state.request.query, state.sources or [])
+            legacy_generator = getattr(state.agent, "generate_report", None)
+            if callable(legacy_generator):
+                state.report = legacy_generator(state.request.query, state.sources or [])
+            else:
+                state.report = state.agent.run(state.request.query, state.sources or [])
         return state
 
     def _reflect_node(self, state: QueryWorkflowState) -> QueryWorkflowState:
@@ -178,6 +221,14 @@ class QueryGraphWorkflow:
         state.runtime_metadata["plan"] = (
             state.plan.model_dump() if hasattr(state.plan, "model_dump") else state.plan
         )
+        state.runtime_metadata["comparison"] = (
+            state.comparison.model_dump() if hasattr(state.comparison, "model_dump") else state.comparison
+        )
+        state.runtime_metadata["evidence_summary"] = (
+            state.evidence_summary.model_dump()
+            if hasattr(state.evidence_summary, "model_dump")
+            else state.evidence_summary
+        )
         state.runtime_metadata["inspection"] = (
             state.evidence_review.model_dump()
             if hasattr(state.evidence_review, "model_dump")
@@ -188,8 +239,8 @@ class QueryGraphWorkflow:
     def _plan_next_step(self, state: QueryWorkflowState) -> str:
         plan = state.plan
         if plan is not None and getattr(plan, "should_retrieve", False) and getattr(plan, "search_query", "").strip():
-            return "tool"
-        return "inspect"
+            return "retrieve_sources"
+        return "compare_sources"
 
     def _next_step(self, state: QueryWorkflowState) -> str:
         if _report_is_grounded(state.report, state.sources):
@@ -225,6 +276,12 @@ class QueryGraphWorkflow:
             "used_reflection": state.used_reflection,
             "sources": state.sources,
             "plan": state.plan.model_dump() if hasattr(state.plan, "model_dump") else state.plan,
+            "comparison": state.comparison.model_dump() if hasattr(state.comparison, "model_dump") else state.comparison,
+            "evidence_summary": (
+                state.evidence_summary.model_dump()
+                if hasattr(state.evidence_summary, "model_dump")
+                else state.evidence_summary
+            ),
             "evidence_review": (
                 state.evidence_review.model_dump()
                 if hasattr(state.evidence_review, "model_dump")
@@ -236,6 +293,8 @@ class QueryGraphWorkflow:
 
     def _from_payload(self, payload: Dict[str, Any]) -> QueryWorkflowState:
         raw_plan = payload.get("plan")
+        raw_comparison = payload.get("comparison")
+        raw_evidence_summary = payload.get("evidence_summary")
         raw_evidence_review = payload.get("evidence_review")
         return QueryWorkflowState(
             request=payload["request"],
@@ -247,6 +306,8 @@ class QueryGraphWorkflow:
             used_reflection=payload.get("used_reflection", False),
             sources=payload.get("sources"),
             plan=self._coerce_plan(raw_plan),
+            comparison=self._coerce_comparison(raw_comparison),
+            evidence_summary=self._coerce_evidence_summary(raw_evidence_summary),
             evidence_review=self._coerce_evidence_review(raw_evidence_review),
             report=payload.get("report"),
             runtime_metadata=payload.get("runtime_metadata") or {},
@@ -262,9 +323,19 @@ class QueryGraphWorkflow:
         state = self._plan_node(state)
         return self._to_payload(state)
 
-    def _tool_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _retrieve_sources_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         state = self._from_payload(payload)
-        state = self._tool_node(state)
+        state = self._retrieve_sources_node(state)
+        return self._to_payload(state)
+
+    def _compare_sources_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._compare_sources_node(state)
+        return self._to_payload(state)
+
+    def _summarize_evidence_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        state = self._from_payload(payload)
+        state = self._summarize_evidence_node(state)
         return self._to_payload(state)
 
     def _inspect_payload_node(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -305,6 +376,36 @@ class QueryGraphWorkflow:
             return EvidenceReview.model_validate(payload)
         return EvidenceReview.parse_obj(payload)
 
+    def _coerce_comparison(self, payload: Any) -> Optional[SourceComparison]:
+        if payload is None or isinstance(payload, SourceComparison):
+            return payload
+        if hasattr(SourceComparison, "model_validate"):
+            return SourceComparison.model_validate(payload)
+        return SourceComparison.parse_obj(payload)
+
+    def _coerce_evidence_summary(self, payload: Any) -> Optional[EvidenceSummary]:
+        if payload is None or isinstance(payload, EvidenceSummary):
+            return payload
+        if hasattr(EvidenceSummary, "model_validate"):
+            return EvidenceSummary.model_validate(payload)
+        return EvidenceSummary.parse_obj(payload)
+
     def _next_payload_step(self, payload: Dict[str, Any]) -> str:
         state = self._from_payload(payload)
         return self._next_step(state)
+
+    def _should_compare_sources(self, state: QueryWorkflowState) -> bool:
+        plan = state.plan
+        if plan is not None and getattr(plan, "compare_sources", False):
+            return True
+        unique_sources = {
+            str((document.metadata or {}).get("source", "unknown"))
+            for document in (state.sources or [])
+        }
+        return len(state.sources or []) >= 2 or len(unique_sources) >= 2
+
+    def _should_summarize_evidence(self, state: QueryWorkflowState) -> bool:
+        plan = state.plan
+        if plan is not None and getattr(plan, "summarize_evidence", False):
+            return True
+        return len(state.sources or []) >= 2
