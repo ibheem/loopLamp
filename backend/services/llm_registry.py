@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
@@ -145,6 +146,49 @@ class LLMProviderRegistry:
         except Exception as exc:
             return False, f"Provider health check failed: {exc.__class__.__name__}."
 
+    def _fetch_json(self, url: str, headers: Optional[Dict[str, str]] = None) -> dict:
+        request = Request(url, headers=headers or {}, method="GET")
+        with urlopen(request, timeout=1.5) as response:
+            payload = response.read().decode("utf-8")
+        return json.loads(payload or "{}")
+
+    def _resolve_ollama_runtime(self, spec: ProviderSpec) -> Tuple[bool, str, List[str], str]:
+        configured = self._is_provider_configured(spec.provider_id)
+        if not configured:
+            return False, f"Set {spec.enabled_flag_env}=true to enable this provider.", [], spec.default_model
+
+        base_url = (spec.base_url or "http://127.0.0.1:11434/v1").rstrip("/")
+        root_url = base_url[:-3] if base_url.endswith("/v1") else base_url
+        try:
+            payload = self._fetch_json(f"{root_url}/api/tags")
+        except HTTPError as exc:
+            return False, f"Health check returned status {exc.code}.", [], spec.default_model
+        except URLError as exc:
+            reason = getattr(exc, "reason", exc)
+            return False, f"Provider is unreachable: {reason}.", [], spec.default_model
+        except Exception as exc:
+            return False, f"Provider health check failed: {exc.__class__.__name__}.", [], spec.default_model
+
+        models = sorted(
+            {
+                str(model.get("name", "")).strip()
+                for model in payload.get("models", [])
+                if str(model.get("name", "")).strip()
+            }
+        )
+        if not models:
+            return True, "Ollama is reachable, but no local models are installed.", [], spec.default_model
+
+        effective_default = spec.default_model if spec.default_model in models else models[0]
+        if spec.default_model and spec.default_model not in models:
+            message = (
+                f"Ollama is reachable with {len(models)} local model(s). "
+                f"Configured default '{spec.default_model}' is not installed, so '{effective_default}' will be used by default."
+            )
+        else:
+            message = f"Ollama is reachable with {len(models)} local model(s)."
+        return True, message, models, effective_default
+
     def list_provider_records(self) -> List[LLMProviderRecord]:
         records = [
             LLMProviderRecord(
@@ -163,7 +207,12 @@ class LLMProviderRegistry:
 
         for spec in self._specs.values():
             configured = self._is_provider_configured(spec.provider_id)
-            reachable, health_message = self._health_check(spec.provider_id)
+            models = list(spec.models)
+            default_model = spec.default_model
+            if spec.provider_id == "ollama":
+                reachable, health_message, models, default_model = self._resolve_ollama_runtime(spec)
+            else:
+                reachable, health_message = self._health_check(spec.provider_id)
             records.append(
                 LLMProviderRecord(
                     provider_id=spec.provider_id,
@@ -173,8 +222,8 @@ class LLMProviderRegistry:
                     configured=configured,
                     reachable=reachable,
                     health_message=health_message,
-                    default_model=spec.default_model,
-                    models=spec.models,
+                    default_model=default_model,
+                    models=models,
                     supports_custom_model=spec.supports_custom_model,
                 )
             )
@@ -202,7 +251,13 @@ class LLMProviderRegistry:
                 f"Unsupported llm_provider '{provider_id}'. Supported providers: {supported}"
             )
 
-        selected_model = (model_override or spec.default_model).strip()
+        selected_model = (model_override or "").strip()
+        if not selected_model:
+            if spec.provider_id == "ollama":
+                _, _, _, effective_default = self._resolve_ollama_runtime(spec)
+                selected_model = effective_default.strip()
+            else:
+                selected_model = spec.default_model.strip()
         return OpenAIResponsesReportProvider(
             api_key=os.getenv(spec.api_key_env) if spec.api_key_env else None,
             model=selected_model,

@@ -1,3 +1,5 @@
+import json
+
 from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.agents.tool_calling_report_agent import ToolCallingReportAgent
@@ -85,6 +87,76 @@ class FakeToolProvider(FakeSuccessProvider):
         )
 
 
+class RepairingOpenAIProvider(OpenAIResponsesReportProvider):
+    def __init__(self):
+        super().__init__(api_key=None, provider_id="ollama", requires_api_key=False)
+        self.calls = []
+
+    def is_available(self) -> bool:
+        return True
+
+    def _run_json_schema_prompt(self, model_name: str, prompt: str, schema_name: str, schema: dict) -> str:
+        self.calls.append(schema_name)
+        if schema_name == "domain_report":
+            return json.dumps(
+                {
+                    "domain": "telecom_security",
+                    "summary": "Isolate the route.",
+                    "metrics": [],
+                    "insights": [
+                        {
+                            "title": "Route issue",
+                            "severity": "high",
+                            "detail": "The route appears unstable.",
+                        }
+                    ],
+                    "recommendations": [
+                        {
+                            "priority": 1,
+                            "action": "Isolate the route.",
+                        }
+                    ],
+                    "source_refs": [],
+                }
+            )
+        return json.dumps(
+            {
+                "domain": "telecom_security",
+                "summary": "Based on the retrieved context, isolate the SS7 route and validate signaling controls.",
+                "metrics": [],
+                "insights": [
+                    {
+                        "title": "Route instability confirmed",
+                        "severity": "high",
+                        "detail": "Retrieved evidence confirms a signaling route issue.",
+                    },
+                    {
+                        "title": "Control validation needed",
+                        "severity": "medium",
+                        "detail": "The evidence supports a follow-up check on signaling controls after containment.",
+                    },
+                ],
+                "recommendations": [
+                    {
+                        "priority": 1,
+                        "action": "Isolate the affected SS7 route immediately.",
+                    },
+                    {
+                        "priority": 2,
+                        "action": "Validate signaling firewall and routing controls after containment.",
+                    },
+                ],
+                "source_refs": [
+                    {
+                        "source": "test_data/telecom_incident.txt",
+                        "chunk_index": 0,
+                        "file_type": "text",
+                    }
+                ],
+            }
+        )
+
+
 def test_openai_report_agent_returns_structured_report_from_provider():
     provider = FakeSuccessProvider()
     agent = OpenAIReportAgent(provider=provider)
@@ -135,6 +207,25 @@ def test_openai_report_agent_passes_graph_artifacts_into_provider():
     assert provider.last_comparison.summary == "Both sources agree that route isolation is first."
     assert provider.last_evidence_summary is not None
     assert provider.last_evidence_summary.cited_sources == ["telecom_playbook.txt"]
+
+
+def test_openai_provider_repairs_weak_structured_report():
+    provider = RepairingOpenAIProvider()
+    agent = OpenAIReportAgent(provider=provider)
+    documents = [
+        Document(
+            page_content="SS7 anomaly triggered OTP delays. Isolate the affected partner route and validate controls.",
+            metadata={"source": "test_data/telecom_incident.txt", "chunk_index": 0, "file_type": "text"},
+        )
+    ]
+
+    report = agent.run("What should be done for the SS7 issue?", documents)
+
+    assert report.summary.startswith("Based on the retrieved context,")
+    assert len(report.insights) >= 2
+    assert len(report.recommendations) >= 2
+    assert report.source_refs
+    assert provider.calls == ["domain_report", "domain_report_repair"]
 
 
 def test_openai_report_agent_falls_back_when_provider_unavailable():
@@ -214,6 +305,28 @@ def test_financial_risk_prompt_guidance_mentions_control_specific_fields():
     assert "decision_basis" in summary_prompt
     assert "recommended_controls" in summary_prompt
     assert "follow_up_checks" in summary_prompt
+
+
+def test_report_prompt_requires_grounded_summary_and_minimum_sections():
+    provider = OpenAIResponsesReportProvider(api_key=None)
+    documents = [
+        Document(
+            page_content="SS7 anomaly triggered OTP delays. Isolate the affected partner route.",
+            metadata={"source": "test_data/telecom_incident.txt", "chunk_index": 0, "file_type": "text"},
+        )
+    ]
+    source_refs = [DomainSourceRef(source="test_data/telecom_incident.txt", chunk_index=0, file_type="text")]
+
+    prompt = provider._build_report_prompt(
+        domain="telecom_security",
+        query="What should be done for the SS7 issue?",
+        context_documents=documents,
+        source_refs=source_refs,
+    )
+
+    assert "The summary must begin with the exact phrase 'Based on the retrieved context,'" in prompt
+    assert "Provide at least 2 concise, grounded insights." in prompt
+    assert "Provide at least 2 grounded recommendations" in prompt
 
 
 def test_medical_prompt_guidance_mentions_clinical_specific_fields():

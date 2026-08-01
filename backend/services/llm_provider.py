@@ -268,6 +268,40 @@ class OpenAIResponsesReportProvider(ReportLLMProvider):
                     schema=_domain_report_schema(),
                 )
                 report = _domain_report_from_json(payload)
+                quality_issues = self._report_quality_issues(report)
+                if quality_issues:
+                    logger.info(
+                        "llm_report_repair_requested model=%s domain=%s issues=%s",
+                        model_name,
+                        domain,
+                        ",".join(quality_issues),
+                    )
+                    repair_payload = self._run_json_schema_prompt(
+                        model_name=model_name,
+                        prompt=self._build_report_repair_prompt(
+                            domain=domain,
+                            query=query,
+                            context_documents=context_documents,
+                            source_refs=source_refs,
+                            draft_report=report,
+                            quality_issues=quality_issues,
+                            comparison=comparison,
+                            evidence_summary=evidence_summary,
+                        ),
+                        schema_name="domain_report_repair",
+                        schema=_domain_report_schema(),
+                    )
+                    repaired_report = _domain_report_from_json(repair_payload)
+                    repaired_issues = self._report_quality_issues(repaired_report)
+                    if not repaired_issues:
+                        report = repaired_report
+                    else:
+                        logger.warning(
+                            "llm_report_repair_incomplete model=%s domain=%s issues=%s",
+                            model_name,
+                            domain,
+                            ",".join(repaired_issues),
+                        )
                 return report
             except Exception as exc:  # pragma: no cover - live API not exercised in tests
                 last_error = exc
@@ -422,6 +456,10 @@ class OpenAIResponsesReportProvider(ReportLLMProvider):
             "If a source comparison or evidence synthesis is provided, use it to sharpen the final answer, but do not invent facts beyond the retrieved evidence.\n"
             + self._domain_report_guidance(domain)
             + "Respond with a JSON object matching the provided schema.\n"
+            + "The summary must begin with the exact phrase 'Based on the retrieved context,'.\n"
+            + "Provide at least 2 concise, grounded insights.\n"
+            + "Provide at least 2 grounded recommendations or follow-up actions.\n"
+            + "Use source_refs from the provided evidence and do not leave source_refs empty.\n"
             + "Keep insights concise, dashboard-ready, and non-redundant.\n\n"
             + f"Domain: {domain}\n"
             + f"User query: {query}\n"
@@ -431,6 +469,49 @@ class OpenAIResponsesReportProvider(ReportLLMProvider):
             + "Context:\n"
             + "\n\n".join(context_blocks)
         )
+
+    def _build_report_repair_prompt(
+        self,
+        domain: str,
+        query: str,
+        context_documents: List[Document],
+        source_refs: List[DomainSourceRef],
+        draft_report: DomainReport,
+        quality_issues: List[str],
+        comparison: Optional[SourceComparison] = None,
+        evidence_summary: Optional[EvidenceSummary] = None,
+    ) -> str:
+        draft_payload = json.dumps(_model_to_dict(draft_report), ensure_ascii=False)
+        return (
+            "You are repairing a weak domain report.\n"
+            "Rewrite the JSON so it remains strictly grounded in the supplied evidence.\n"
+            "The summary must begin with the exact phrase 'Based on the retrieved context,'.\n"
+            "Return at least 2 grounded insights.\n"
+            "Return at least 2 grounded recommendations or validation follow-up actions.\n"
+            "Ensure source_refs is populated from the provided evidence.\n"
+            f"Quality issues to fix: {json.dumps(quality_issues)}\n"
+            f"Draft report: {draft_payload}\n\n"
+            + self._build_report_prompt(
+                domain=domain,
+                query=query,
+                context_documents=context_documents,
+                source_refs=source_refs,
+                comparison=comparison,
+                evidence_summary=evidence_summary,
+            )
+        )
+
+    def _report_quality_issues(self, report: DomainReport) -> List[str]:
+        issues: List[str] = []
+        if "retrieved context" not in report.summary.lower():
+            issues.append("summary_not_explicitly_grounded")
+        if len(report.insights) < 2:
+            issues.append("insufficient_insights")
+        if len(report.recommendations) < 2:
+            issues.append("insufficient_recommendations")
+        if not report.source_refs:
+            issues.append("missing_source_refs")
+        return issues
 
     def _build_plan_prompt(
         self,

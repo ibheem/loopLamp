@@ -183,7 +183,10 @@ export default function DashboardApp() {
     setFormState((current) => ({
       ...current,
       llmProvider: providerId,
-      llmModel: nextProvider?.supports_custom_model ? current.llmModel : "",
+      llmModel:
+        nextProvider?.supports_custom_model && nextProvider?.models?.includes(current.llmModel)
+          ? current.llmModel
+          : "",
     }));
   }
 
@@ -403,7 +406,9 @@ export default function DashboardApp() {
               />
             )}
             <small className="field-hint">
-              Leave this empty to preserve the provider default and fallback chain.
+              {selectedProvider?.provider_id === "auto"
+                ? "Select a concrete provider to choose a specific model, or leave Auto to let the backend resolve it."
+                : "Leave this empty to preserve the provider default and fallback chain."}
             </small>
           </label>
           <label>
