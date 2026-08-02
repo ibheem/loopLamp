@@ -63,6 +63,33 @@ def test_build_vector_db_uses_qdrant_reindex_store_when_forced(monkeypatch):
     assert store is fake_store
 
 
+def test_resolve_qdrant_runtime_prefers_server_mode_when_url_present(monkeypatch, tmp_path):
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant:6333")
+    monkeypatch.setattr(vector_store, "_build_qdrant_client", lambda storage_dir: object())
+
+    client, backend_name = vector_store._resolve_qdrant_runtime(tmp_path / "qdrant_storage")
+
+    assert client is not None
+    assert backend_name == "qdrant_server"
+
+
+def test_build_qdrant_client_uses_server_url(monkeypatch, tmp_path):
+    calls = {}
+
+    class FakeQdrantClient:
+        def __init__(self, **kwargs):
+            calls.update(kwargs)
+
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant:6333")
+    monkeypatch.setenv("QDRANT_API_KEY", "secret")
+    monkeypatch.setattr(vector_store, "QdrantClient", FakeQdrantClient)
+
+    vector_store._build_qdrant_client(tmp_path / "qdrant_storage")
+
+    assert calls["url"] == "http://qdrant:6333"
+    assert calls["api_key"] == "secret"
+
+
 def test_chunk_text_falls_back_when_langchain_splitter_missing(monkeypatch):
     monkeypatch.setattr(document_ingestion, "RecursiveCharacterTextSplitter", None)
 

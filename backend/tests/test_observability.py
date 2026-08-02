@@ -874,6 +874,7 @@ def test_pipeline_supports_request_level_provider_selection():
 
     assert response.execution.provider_mode == "groq"
     assert response.execution.provider_model == "llama-3.3-70b-versatile"
+    assert response.execution.vector_backend in {"memory", "langchain_embedding", "qdrant_persistent", "qdrant_server"}
     assert response.execution.llm_generated is True
     assert response.execution.used_fallback is False
     assert response.execution.requested_provider == "groq"

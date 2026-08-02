@@ -117,6 +117,7 @@ class QdrantPersistentVectorStore:
         storage_dir: Path,
         force_reindex: bool = False,
         client=None,
+        backend_name: str = "qdrant_persistent",
     ):
         if QdrantClient is None and client is None:
             raise RuntimeError("qdrant-client is not installed")
@@ -124,8 +125,10 @@ class QdrantPersistentVectorStore:
         self._documents = list(documents)
         self._embeddings = embeddings
         self._storage_dir = storage_dir
-        self._storage_dir.mkdir(parents=True, exist_ok=True)
-        self._client = client or QdrantClient(path=str(self._storage_dir))
+        self.backend_name = backend_name
+        if client is None:
+            self._storage_dir.mkdir(parents=True, exist_ok=True)
+        self._client = client or _build_qdrant_client(self._storage_dir)
         self._collection_name = _make_collection_name(collection_key, self._documents)
         self._content_hash = _documents_hash(self._documents)
         self._ensure_collection(force_reindex=force_reindex)
@@ -256,11 +259,14 @@ def _build_qdrant_vector_store(chunks: Sequence[Document], collection_key: str =
 
     try:
         embeddings = SentenceTransformerEmbeddingsAdapter()
+        client, backend_name = _resolve_qdrant_runtime(storage_dir)
         return QdrantPersistentVectorStore(
             documents=chunks,
             embeddings=embeddings,
             collection_key=collection_key,
             storage_dir=storage_dir,
+            client=client,
+            backend_name=backend_name,
         )
     except Exception as exc:
         logger.info(
@@ -289,12 +295,15 @@ def _build_qdrant_reindex_store(chunks: Sequence[Document], collection_key: str 
 
     try:
         embeddings = SentenceTransformerEmbeddingsAdapter()
+        client, backend_name = _resolve_qdrant_runtime(storage_dir)
         return QdrantPersistentVectorStore(
             documents=chunks,
             embeddings=embeddings,
             collection_key=collection_key,
             storage_dir=storage_dir,
             force_reindex=True,
+            client=client,
+            backend_name=backend_name,
         )
     except Exception as exc:
         logger.info(
@@ -302,3 +311,24 @@ def _build_qdrant_reindex_store(chunks: Sequence[Document], collection_key: str 
             exc.__class__.__name__,
         )
         return None
+
+
+def _resolve_qdrant_runtime(storage_dir: Path):
+    qdrant_url = os.getenv("QDRANT_URL", "").strip()
+    if qdrant_url:
+        logger.info("vector_store_qdrant_runtime mode=server url=%s", qdrant_url)
+        return _build_qdrant_client(storage_dir), "qdrant_server"
+    logger.info("vector_store_qdrant_runtime mode=local path=%s", storage_dir)
+    return _build_qdrant_client(storage_dir), "qdrant_persistent"
+
+
+def _build_qdrant_client(storage_dir: Path):
+    qdrant_url = os.getenv("QDRANT_URL", "").strip()
+    qdrant_api_key = os.getenv("QDRANT_API_KEY", "").strip()
+    if qdrant_url:
+        kwargs = {"url": qdrant_url}
+        if qdrant_api_key:
+            kwargs["api_key"] = qdrant_api_key
+        return QdrantClient(**kwargs)
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    return QdrantClient(path=str(storage_dir))

@@ -94,6 +94,7 @@ class QueryPipeline:
             requested_model=(request.llm_model or "").strip(),
             provider_mode=runtime_metadata.get("provider_mode", "deterministic"),
             provider_model=runtime_metadata.get("provider_model", ""),
+            vector_backend=getattr(vector_db, "backend_name", vector_db.__class__.__name__),
             llm_generated=runtime_metadata.get("used_fallback", "false") != "true"
             and runtime_metadata.get("provider_mode", "deterministic") not in {"fallback", "deterministic"},
             used_fallback=runtime_metadata.get("used_fallback", "false") == "true",

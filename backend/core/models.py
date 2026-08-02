@@ -131,6 +131,7 @@ class ExecutionMetadata(BaseModel):
     requested_model: str = ""
     provider_mode: str
     provider_model: str = ""
+    vector_backend: str = ""
     llm_generated: bool = False
     used_fallback: bool = False
     tool_calls: int = 0
