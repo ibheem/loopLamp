@@ -528,7 +528,8 @@ export default function DashboardApp() {
               </p>
               <p className="hero-label">
                 LLM generated: {isLlmGenerated(dashboard.execution) ? "yes" : "no"} ·
-                grounded by retrieval: {dashboard.execution.inspection?.grounded ? "yes" : "no"}
+                grounded by retrieval: {dashboard.execution.inspection?.grounded ? "yes" : "no"} ·
+                vector backend: {dashboard.execution.vector_backend || "unknown"}
               </p>
               {getLlmFallbackWarning(dashboard.execution) ? (
                 <p className="error-banner">{getLlmFallbackWarning(dashboard.execution)}</p>
@@ -614,6 +615,10 @@ export default function DashboardApp() {
                 <div>
                   <dt>Workflow</dt>
                   <dd>{dashboard.execution.workflow_backend}</dd>
+                </div>
+                <div>
+                  <dt>Vector Backend</dt>
+                  <dd>{dashboard.execution.vector_backend || "unknown"}</dd>
                 </div>
                 <div>
                   <dt>Agent Loop</dt>

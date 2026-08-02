@@ -257,6 +257,7 @@ test("matched source style inputs can be rendered from dashboard payload shape",
       requested_model: "",
       provider_mode: "openai",
       provider_model: "gpt-5-mini",
+      vector_backend: "qdrant_server",
       llm_generated: true,
       workflow_backend: "fallback",
       tool_calls: 1,
@@ -380,6 +381,7 @@ test("matched source style inputs can be rendered from dashboard payload shape",
   assert.equal(payload.execution.agent_trace.steps[1].label, "Retrieve Sources");
   assert.equal(payload.execution.requested_provider, "auto");
   assert.equal(payload.execution.provider_mode, "openai");
+  assert.equal(payload.execution.vector_backend, "qdrant_server");
   assert.equal(payload.execution.llm_generated, true);
   assert.equal(payload.evaluation.graph_state_score, 100);
   assert.equal(payload.evaluation.graph_state_missing_fields.length, 0);

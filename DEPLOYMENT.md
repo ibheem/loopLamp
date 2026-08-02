@@ -17,6 +17,7 @@ The same logical split is preserved in both cases:
 
 - a `FastAPI` backend on `http://127.0.0.1:8000`
 - a `Next.js` frontend on `http://localhost:3000`
+- a dedicated `Qdrant` vector database on `http://127.0.0.1:6333` in Docker mode
 
 This is the current recommended setup because:
 
@@ -39,6 +40,7 @@ Container URLs:
 - API root: `http://127.0.0.1:8000/`
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - frontend UI: `http://localhost:3000`
+- Qdrant API: `http://127.0.0.1:6333`
 
 To stop:
 
@@ -155,6 +157,25 @@ OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
 
 Using `http://127.0.0.1:11434/v1` from inside the backend container will not reach the host Ollama process.
 
+#### `QDRANT_URL`
+
+Optional for local Python runs, preconfigured for Docker Compose.
+
+When set, the backend uses a real Qdrant server instead of embedded local/file mode.
+
+Examples:
+
+```text
+http://qdrant:6333
+http://127.0.0.1:6333
+```
+
+#### `QDRANT_API_KEY`
+
+Optional.
+
+Only needed when your Qdrant server requires authentication, such as Qdrant Cloud.
+
 #### `LOOPLAMP_STARTUP_SOURCE_SYNC`
 
 Optional.
@@ -213,7 +234,7 @@ These folders matter at runtime:
 
 - `test_data/` for bundled sample sources
 - `uploaded_sources/` for files uploaded through the API
-- `qdrant_storage/` for persistent local vector collections
+- `qdrant_storage/` for persistent local vector collections in non-Docker local mode
 
 Important behavior:
 
@@ -221,8 +242,8 @@ Important behavior:
 - uploaded source metadata is stored in SQLite under the upload storage area
 - deleting `uploaded_sources/` removes uploaded source state
 
-In the Docker setup, this is already mounted as a named volume called `uploaded_sources`.
-Persistent vector collections are mounted as a named volume called `qdrant_storage`.
+In the Docker setup, uploaded files are mounted as a named volume called `uploaded_sources`.
+Qdrant server data is mounted as a named volume called `qdrant_data`.
 
 If you want uploads to survive deployment replacement in a real server environment, keep this path on persistent storage.
 

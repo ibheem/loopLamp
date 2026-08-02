@@ -1,4 +1,11 @@
 services:
+  qdrant:
+    image: qdrant/qdrant:v1.13.4
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
   backend:
     build:
       context: .
@@ -18,15 +25,17 @@ services:
       TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo}
       TOGETHER_BASE_URL: ${TOGETHER_BASE_URL:-https://api.together.xyz/v1}
       LOOPLAMP_ENABLE_OLLAMA: ${LOOPLAMP_ENABLE_OLLAMA:-false}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
-      QDRANT_STORAGE_PATH: /app/qdrant_storage
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       LOOPLAMP_STARTUP_SOURCE_SYNC: ${LOOPLAMP_STARTUP_SOURCE_SYNC:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - qdrant
     volumes:
       - uploaded_sources:/app/uploaded_sources
-      - qdrant_storage:/app/qdrant_storage
 
   frontend:
     build:
@@ -43,4 +52,4 @@ services:
 
 volumes:
   uploaded_sources:
-  qdrant_storage:
+  qdrant_data:

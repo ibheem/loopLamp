@@ -451,3 +451,135 @@ The following references map the main libraries and frameworks in this repositor
     - Used in [frontend/components/DashboardApp.js](frontend/components/DashboardApp.js) for the interactive dashboard experience.
     - Why it matters: it powers the component state, form behavior, and result rendering in the UI.
     - Documentation: https://react.dev/reference
+
+---
+
+## 12. Behavioral markup: how the repo behaves at runtime
+
+The repository is not just a collection of folders; it behaves like a layered pipeline with clear responsibilities. The following markup captures the runtime behavior of the most important files and the way they connect.
+
+```mermaid
+flowchart TD
+    A[frontend/components/DashboardApp.js] --> B[backend/app/main.py]
+    B --> C[backend/workflows/query_pipeline.py]
+    C --> D[backend/services/document_ingestion.py]
+    C --> E[backend/services/vector_store.py]
+    C --> F[backend/services/source_registry.py]
+    C --> G[backend/workflows/query_graph.py]
+    G --> H[backend/agents/base.py]
+    H --> I[backend/agents/telecom_security.py]
+    H --> J[backend/agents/openai_report_agent.py]
+    G --> K[backend/services/llm_provider.py]
+    C --> L[backend/services/dashboard_transformer.py]
+    L --> M[DashboardResponse]
+    C --> N[QueryResponse]
+    B --> O[FastAPI routes /query /dashboard/report /sources]
+```
+
+### File-by-file behavior and wiring
+
+1. [frontend/components/DashboardApp.js](frontend/components/DashboardApp.js)
+   - Owns the dashboard UI state.
+   - Calls the backend for source listing, upload, delete, reindex, query, and dashboard-report generation.
+   - Uses local React state to render metrics, highlights, evidence cards, execution metadata, and source status.
+
+2. [frontend/app/page.js](frontend/app/page.js)
+   - Acts as the page entrypoint.
+   - Renders the dashboard component into the app router page.
+
+3. [backend/app/main.py](backend/app/main.py)
+   - Defines the FastAPI app and all route handlers.
+   - Handles startup synchronization, file upload validation, source management, query execution, and dashboard transformation.
+   - Converts raised errors into HTTPException responses, keeping API behavior predictable.
+
+4. [backend/core/models.py](backend/core/models.py)
+   - Provides the contract layer for requests, responses, reports, evaluation, and dashboard payloads.
+   - Ensures that API payloads are consistent across frontend and backend.
+
+5. [backend/core/documents.py](backend/core/documents.py)
+   - Provides the minimal document abstraction used throughout the app.
+   - Keeps ingestion, retrieval, and agent pipelines working against one common shape.
+
+6. [backend/workflows/query_pipeline.py](backend/workflows/query_pipeline.py)
+   - This is the orchestration entrypoint for most user requests.
+   - It resolves the source set, ingests documents, builds a vector DB, selects an agent, runs the workflow, evaluates the result, and returns a structured response.
+   - It is the central “controller” for request handling.
+
+7. [backend/workflows/query_graph.py](backend/workflows/query_graph.py)
+   - Implements a graph-style execution loop.
+   - The logic follows retrieve -> plan -> optional retrieve additional sources -> compare -> summarize -> inspect -> generate -> reflect/finish.
+   - This makes the reasoning loop explicit and extensible.
+
+8. [backend/services/document_ingestion.py](backend/services/document_ingestion.py)
+   - Reads local files and turns them into document chunks.
+   - Supports .txt, .md, .pdf, .csv, and .json.
+   - Uses a LangChain splitter when available and falls back to a custom chunker when it is not.
+
+9. [backend/services/vector_store.py](backend/services/vector_store.py)
+   - Chooses the retrieval backend dynamically.
+   - Preferred order is Qdrant persistence, then LangChain embeddings, then in-memory lexical matching.
+   - This is a strong example of graceful degradation and progressive enhancement.
+
+10. [backend/services/retrieval.py](backend/services/retrieval.py)
+    - Provides a thin retrieval wrapper over the active vector store.
+    - Keeps the workflow layer from depending directly on the concrete retrieval implementation.
+
+11. [backend/services/source_registry.py](backend/services/source_registry.py)
+    - Manages the source catalog.
+    - Reads sample sources from the domain catalog, persists uploaded files, and tracks indexing state in SQLite.
+    - This keeps source inventory and UI state consistent.
+
+12. [backend/services/llm_provider.py](backend/services/llm_provider.py)
+    - Wraps LLM interaction behind a provider abstraction.
+    - Supports structured JSON-schema-based output generation and fallback behavior.
+    - This is a good example of isolating AI-specific behavior from core workflow logic.
+
+13. [backend/services/dashboard_transformer.py](backend/services/dashboard_transformer.py)
+    - Converts a QueryResponse into a DashboardResponse.
+    - This is how the backend translates raw report output into a UI-friendly shape.
+
+14. [backend/services/report_evaluator.py](backend/services/report_evaluator.py)
+    - Evaluates whether the generated report is grounded and whether the execution metadata contains the expected graph-state fields.
+    - This adds quality control and observability to the pipeline.
+
+15. [backend/agents/base.py](backend/agents/base.py)
+    - Defines the abstract contract for all domain agents.
+    - Standardizes methods such as run, plan_retrieval, inspect_evidence, compare_sources, and summarize_evidence.
+
+16. [backend/agents/telecom_security.py](backend/agents/telecom_security.py) and other domain agent files
+    - Implement deterministic domain-specific reporting logic.
+    - They are isolated from workflow orchestration, which keeps business logic decoupled from execution mechanics.
+
+17. [backend/agents/openai_report_agent.py](backend/agents/openai_report_agent.py)
+    - Adds optional LLM-backed report generation.
+    - It can fall back to deterministic logic when the provider is unavailable.
+
+18. [backend/agents/tool_calling_report_agent.py](backend/agents/tool_calling_report_agent.py)
+    - Extends the agent abstraction with richer tool-use behavior.
+    - It can plan retrieval, compare evidence sources, and summarize context before final report generation.
+
+19. [backend/guards/execution.py](backend/guards/execution.py)
+    - Adds guard-like execution behavior for reflection-based retries.
+    - It reinforces the idea that answer quality should be checked before the workflow finishes.
+
+### Best practices visible in the implementation
+
+- Separation of concerns: API layer, workflow layer, service layer, and agent layer are intentionally distinct.
+- Contract-first design: Pydantic models define the shape of data flowing between modules.
+- Progressive enhancement: the system works with local fallbacks before optional AI/vector dependencies are installed.
+- Defensive programming: file validation, error handling, and fallback branches are explicit rather than implicit.
+- Observability: execution metadata, trace steps, and evaluation output make debugging easier.
+- Extensibility: new domains and new agent behaviors can be added without changing the core API contract.
+- Testability: the repository includes test coverage for key flows such as API routing, ingestion, retrieval, and source lifecycle.
+
+### Practical mental model
+
+If you think of the project as a pipeline, it looks like this:
+
+- User interacts with the dashboard UI.
+- The React component sends a request to the FastAPI backend.
+- QueryPipeline resolves the source set and builds the retrieval context.
+- QueryGraphWorkflow executes the reasoning loop.
+- An agent turns the retrieved evidence into a structured report.
+- The dashboard transformer reshapes the report for the frontend.
+- The UI renders the final experience.

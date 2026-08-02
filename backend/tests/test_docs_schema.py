@@ -89,6 +89,8 @@ def test_env_example_lists_multi_provider_variables():
     assert "OPENROUTER_API_KEY=" in content
     assert "GROQ_API_KEY=" in content
     assert "TOGETHER_API_KEY=" in content
+    assert "QDRANT_URL=" in content
+    assert "QDRANT_API_KEY=" in content
     assert "LOOPLAMP_ENABLE_OLLAMA=true" in content
     assert "OLLAMA_BASE_URL=http://host.docker.internal:11434/v1" in content
     assert "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000" in content
