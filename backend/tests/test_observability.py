@@ -12,6 +12,8 @@ from backend.services.llm_provider import (
     SourceComparison,
 )
 from backend.services.report_evaluator import evaluate_report
+from backend.services.vector_store import InMemoryVectorStore
+from backend.workflows import query_pipeline as query_pipeline_module
 from backend.workflows.query_pipeline import QueryPipeline
 
 
@@ -495,16 +497,21 @@ def test_tool_calling_agent_runtime_metadata_is_exposed_through_pipeline():
 def test_query_pipeline_promotes_tool_calling_agents_for_priority_domains():
     pipeline = QueryPipeline()
 
-    assert pipeline.agents["telecom_security"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["financial_risk"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["medical_qa"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["banking_assistant"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["automotive"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["manufacturing"].__class__.__name__ == "ToolCallingReportAgent"
-    assert pipeline.agents["ecommerce"].__class__.__name__ == "ToolCallingReportAgent"
+    assert pipeline.agents["telecom_security"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["financial_risk"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["medical_qa"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["banking_assistant"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["ecommerce"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["automotive"].__class__.__name__ == "LangChainCreateAgentReportAgent"
+    assert pipeline.agents["manufacturing"].__class__.__name__ == "LangChainCreateAgentReportAgent"
 
 
-def test_financial_risk_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_financial_risk_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["financial_risk"] = ToolCallingReportAgent(
         provider=FinancialRiskToolLoopProvider(),
@@ -548,7 +555,12 @@ def test_financial_risk_pipeline_exposes_domain_specific_comparison_and_summary_
     ]
 
 
-def test_medical_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_medical_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["medical_qa"] = ToolCallingReportAgent(
         provider=MedicalToolLoopProvider(),
@@ -600,7 +612,12 @@ def test_medical_pipeline_exposes_domain_specific_comparison_and_summary_state()
     ]
 
 
-def test_banking_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_banking_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["banking_assistant"] = ToolCallingReportAgent(
         provider=BankingToolLoopProvider(),
@@ -660,7 +677,12 @@ def test_banking_pipeline_exposes_domain_specific_comparison_and_summary_state()
     ]
 
 
-def test_automotive_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_automotive_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["automotive"] = ToolCallingReportAgent(
         provider=AutomotiveToolLoopProvider(),
@@ -710,7 +732,12 @@ def test_automotive_pipeline_exposes_domain_specific_comparison_and_summary_stat
     ]
 
 
-def test_manufacturing_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_manufacturing_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["manufacturing"] = ToolCallingReportAgent(
         provider=ManufacturingToolLoopProvider(),
@@ -763,7 +790,12 @@ def test_manufacturing_pipeline_exposes_domain_specific_comparison_and_summary_s
     ]
 
 
-def test_ecommerce_pipeline_exposes_domain_specific_comparison_and_summary_state():
+def test_ecommerce_pipeline_exposes_domain_specific_comparison_and_summary_state(monkeypatch):
+    monkeypatch.setattr(
+        query_pipeline_module,
+        "build_vector_db",
+        lambda documents, collection_key=None: InMemoryVectorStore(documents),
+    )
     pipeline = QueryPipeline()
     pipeline.agents["ecommerce"] = ToolCallingReportAgent(
         provider=EcommerceToolLoopProvider(),

@@ -5,9 +5,10 @@ from backend.agents.automotive import AutomotiveAgent
 from backend.agents.banking_assistant import BankingAssistantAgent
 from backend.agents.ecommerce import EcommerceAgent
 from backend.agents.financial_risk import FinancialRiskAgent
+from backend.agents.langchain_domain_config import uses_langchain_create_agent
+from backend.agents.langchain_report_agent import LangChainCreateAgentReportAgent
 from backend.agents.manufacturing import ManufacturingAgent
 from backend.agents.medical_qa import MedicalQAAgent
-from backend.agents.openai_report_agent import OpenAIReportAgent
 from backend.agents.telecom_security import TelecomSecurityAgent
 from backend.agents.tool_calling_report_agent import ToolCallingReportAgent
 from backend.core.models import ExecutionMetadata, QueryRequest, QueryResponse, SourceDocument
@@ -41,23 +42,7 @@ class QueryPipeline:
             "ecommerce": EcommerceAgent(),
             "general": TelecomSecurityAgent(),
         }
-        telecom_agent = self._build_tool_calling_agent("telecom_security")
-        finance_agent = self._build_tool_calling_agent("financial_risk")
-        medical_agent = self._build_tool_calling_agent("medical_qa")
-        banking_agent = self._build_tool_calling_agent("banking_assistant")
-        automotive_agent = self._build_tool_calling_agent("automotive")
-        manufacturing_agent = self._build_tool_calling_agent("manufacturing")
-        ecommerce_agent = self._build_tool_calling_agent("ecommerce")
-        self.agents = {
-            "telecom_security": telecom_agent,
-            "financial_risk": finance_agent,
-            "medical_qa": medical_agent,
-            "banking_assistant": banking_agent,
-            "automotive": automotive_agent,
-            "manufacturing": manufacturing_agent,
-            "ecommerce": ecommerce_agent,
-            "general": telecom_agent,
-        }
+        self.agents = self._build_default_agents()
 
     def run(self, request: QueryRequest) -> QueryResponse:
         agent = self._resolve_agent(request)
@@ -150,6 +135,36 @@ class QueryPipeline:
             domain_name=domain,
         )
 
+    def _build_langchain_agent(
+        self,
+        domain: str,
+        provider_id: str = "auto",
+        model_override: Optional[str] = None,
+    ) -> LangChainCreateAgentReportAgent:
+        provider = (
+            OpenAIResponsesReportProvider()
+            if provider_id == "openai" and not model_override
+            else self.provider_registry.create_provider(provider_id=provider_id, model_override=model_override)
+        )
+        return LangChainCreateAgentReportAgent(
+            provider=provider,
+            fallback_agent=self.fallback_agents[domain],
+            domain_name=domain,
+        )
+
+    def _build_default_agents(self):
+        agents = {}
+        for domain in self.fallback_agents:
+            if domain == "general":
+                continue
+            builder = self._agent_builder_for_domain(domain)
+            agents[domain] = builder(domain)
+        agents["general"] = agents["telecom_security"]
+        return agents
+
+    def _agent_builder_for_domain(self, domain: str):
+        return self._build_langchain_agent if uses_langchain_create_agent(domain) else self._build_tool_calling_agent
+
     def _resolve_agent(self, request: QueryRequest):
         base_agent = self.agents.get(request.domain)
         if base_agent is None:
@@ -160,7 +175,8 @@ class QueryPipeline:
         if selected_provider == "auto" and not selected_model:
             return base_agent
 
-        return self._build_tool_calling_agent(
+        builder = self._agent_builder_for_domain(request.domain)
+        return builder(
             domain=request.domain,
             provider_id=selected_provider,
             model_override=selected_model or None,

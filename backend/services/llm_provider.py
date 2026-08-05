@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,10 +11,15 @@ from backend.core.models import DomainReport, DomainSourceRef
 
 logger = logging.getLogger(__name__)
 
-try:  # pragma: no cover - exercised through fake providers in tests
-    from openai import OpenAI
+try:  # pragma: no cover - exercised through provider availability checks
+    from langchain_ollama import ChatOllama
 except Exception:  # pragma: no cover - import failure handled at runtime
-    OpenAI = None
+    ChatOllama = None
+
+try:  # pragma: no cover - exercised through provider availability checks
+    from langchain_openai import ChatOpenAI
+except Exception:  # pragma: no cover - import failure handled at runtime
+    ChatOpenAI = None
 
 
 class ProviderUnavailableError(RuntimeError):
@@ -147,6 +152,9 @@ class ReportLLMProvider(ABC):
     ) -> Optional[EvidenceSummary]:
         return None
 
+    def build_chat_model(self, model_override: Optional[str] = None):
+        return None
+
 
 def _domain_report_schema() -> dict:
     if hasattr(DomainReport, "model_json_schema"):
@@ -224,15 +232,22 @@ class OpenAIResponsesReportProvider(ReportLLMProvider):
         self.provider_id = provider_id
         self.base_url = base_url
         self.requires_api_key = requires_api_key
-        client_api_key = self.api_key or ("looplamp-local" if not requires_api_key else None)
-        self._client = (
-            OpenAI(api_key=client_api_key, base_url=self.base_url)
-            if OpenAI is not None and client_api_key
-            else None
-        )
+        self._model_cache: Dict[str, Any] = {}
 
     def is_available(self) -> bool:
-        return self._client is not None
+        return self.build_chat_model() is not None
+
+    def build_chat_model(self, model_override: Optional[str] = None):
+        selected_model = (model_override or self.model or "").strip()
+        if not selected_model:
+            return None
+        if selected_model in self._model_cache:
+            return self._model_cache[selected_model]
+
+        model = self._create_chat_model(selected_model)
+        if model is not None:
+            self._model_cache[selected_model] = model
+        return model
 
     def generate_report(
         self,
@@ -407,18 +422,54 @@ class OpenAIResponsesReportProvider(ReportLLMProvider):
         return _evidence_summary_from_json(payload)
 
     def _run_json_schema_prompt(self, model_name: str, prompt: str, schema_name: str, schema: dict) -> str:
-        response = self._client.responses.create(
-            model=model_name,
-            input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": schema_name,
-                    "schema": schema,
-                }
-            },
-        )
-        return response.output_text
+        chat_model = self.build_chat_model(model_name)
+        if chat_model is None:
+            raise ProviderUnavailableError(
+                f"{self.provider_id} provider is unavailable. Configure the related credentials to enable it."
+            )
+        structured = chat_model.with_structured_output(schema, method=self._structured_output_method())
+        response = structured.invoke(prompt)
+        if isinstance(response, BaseModel):
+            if hasattr(response, "model_dump_json"):
+                return response.model_dump_json()
+            return json.dumps(response.dict())
+        return json.dumps(response)
+
+    def _create_chat_model(self, model_name: str):
+        if self.provider_id == "ollama":
+            if ChatOllama is None:
+                return None
+            return ChatOllama(
+                model=model_name,
+                base_url=self.base_url,
+                temperature=0,
+                validate_model_on_init=False,
+            )
+
+        if ChatOpenAI is None:
+            return None
+
+        client_api_key = self.api_key
+        if self.requires_api_key and not client_api_key:
+            return None
+
+        kwargs: Dict[str, Any] = {
+            "model": model_name,
+            "temperature": 0,
+            "max_retries": 1,
+        }
+        if client_api_key:
+            kwargs["api_key"] = client_api_key
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        if self.provider_id == "openai":
+            kwargs["use_responses_api"] = True
+        return ChatOpenAI(**kwargs)
+
+    def _structured_output_method(self) -> str:
+        if self.provider_id in {"openrouter", "groq", "together"}:
+            return "function_calling"
+        return "json_schema"
 
     def _build_report_prompt(
         self,

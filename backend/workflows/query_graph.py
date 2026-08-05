@@ -365,6 +365,7 @@ class QueryGraphWorkflow:
     def _coerce_plan(self, payload: Any) -> Optional[RetrievalPlan]:
         if payload is None or isinstance(payload, RetrievalPlan):
             return payload
+        payload = self._normalize_model_payload(payload, RetrievalPlan)
         if hasattr(RetrievalPlan, "model_validate"):
             return RetrievalPlan.model_validate(payload)
         return RetrievalPlan.parse_obj(payload)
@@ -372,6 +373,7 @@ class QueryGraphWorkflow:
     def _coerce_evidence_review(self, payload: Any) -> Optional[EvidenceReview]:
         if payload is None or isinstance(payload, EvidenceReview):
             return payload
+        payload = self._normalize_model_payload(payload, EvidenceReview)
         if hasattr(EvidenceReview, "model_validate"):
             return EvidenceReview.model_validate(payload)
         return EvidenceReview.parse_obj(payload)
@@ -379,6 +381,7 @@ class QueryGraphWorkflow:
     def _coerce_comparison(self, payload: Any) -> Optional[SourceComparison]:
         if payload is None or isinstance(payload, SourceComparison):
             return payload
+        payload = self._normalize_model_payload(payload, SourceComparison)
         if hasattr(SourceComparison, "model_validate"):
             return SourceComparison.model_validate(payload)
         return SourceComparison.parse_obj(payload)
@@ -386,9 +389,36 @@ class QueryGraphWorkflow:
     def _coerce_evidence_summary(self, payload: Any) -> Optional[EvidenceSummary]:
         if payload is None or isinstance(payload, EvidenceSummary):
             return payload
+        payload = self._normalize_model_payload(payload, EvidenceSummary)
         if hasattr(EvidenceSummary, "model_validate"):
             return EvidenceSummary.model_validate(payload)
         return EvidenceSummary.parse_obj(payload)
+
+    def _normalize_model_payload(self, payload: Any, model_type: Any) -> Any:
+        if isinstance(payload, dict):
+            return payload
+        if hasattr(payload, "model_dump"):
+            return payload.model_dump()
+        if hasattr(payload, "dict"):
+            return payload.dict()
+        field_names = list(getattr(model_type, "model_fields", {}).keys())
+        if not field_names and hasattr(model_type, "__fields__"):
+            field_names = list(model_type.__fields__.keys())
+        if field_names:
+            normalized = {
+                field_name: getattr(payload, field_name)
+                for field_name in field_names
+                if hasattr(payload, field_name)
+            }
+            if normalized:
+                return normalized
+        if hasattr(payload, "__dict__"):
+            return {
+                key: value
+                for key, value in payload.__dict__.items()
+                if not key.startswith("_")
+            }
+        return payload
 
     def _next_payload_step(self, payload: Dict[str, Any]) -> str:
         state = self._from_payload(payload)
