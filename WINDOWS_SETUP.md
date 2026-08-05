@@ -8,7 +8,7 @@ This guide is for Windows teammates who want to run `loopLamp` locally, run test
 
 Install these first:
 
-- Python `3.9+`
+- Python `3.11.9`
 - Node.js `18+`
 - `npm`
 - Git
@@ -40,8 +40,9 @@ frontend/
 
 ```powershell
 cd loopLamp
-python -m venv .venv
+py -3.11 -m venv .venv
 .venv\Scripts\Activate.ps1
+python --version
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -50,8 +51,9 @@ pip install -r requirements.txt
 
 ```cmd
 cd loopLamp
-python -m venv .venv
+py -3.11 -m venv .venv
 .venv\Scripts\activate
+python --version
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -188,6 +190,8 @@ cd loopLamp
 Copy-Item .env.example .env
 docker compose up --build
 ```
+
+In Docker mode, the backend already runs inside the repo image based on `python:3.11-slim`. Your local Windows Python installation matters only when you run the backend outside Docker.
 
 URLs:
 

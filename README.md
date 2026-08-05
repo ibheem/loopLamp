@@ -55,6 +55,10 @@ loopLamp/
 
 ## Setup
 
+Verified local Python version: `3.11.9`
+
+The Docker backend image is already pinned to `python:3.11-slim`, so local and container runs stay on the same major/minor runtime.
+
 ```bash bootstrap.sh```
 
 ## Run tests
@@ -102,6 +106,8 @@ cd loopLamp
 cp .env.example .env
 docker compose up --build
 ```
+
+The backend container runs on `Python 3.11`.
 
 Then open:
 

@@ -35,6 +35,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+The backend container is built from `python:3.11-slim`, so Docker already standardizes the backend runtime on Python 3.11 even if your host has multiple Python installations.
+
 Container URLs:
 
 - API root: `http://127.0.0.1:8000/`
@@ -58,8 +60,10 @@ docker compose down -v
 
 ### Backend
 
-- Python `3.9+`
+- Python `3.11.9` (current verified local version)
 - virtual environment support
+
+Local backend development should stay on Python `3.11.x` so dependency resolution matches Docker as closely as possible.
 
 ### Frontend
 
@@ -74,6 +78,7 @@ From the project root:
 cd loopLamp
 python3 -m venv .venv
 source .venv/bin/activate
+python --version
 pip install -r requirements.txt
 uvicorn backend.app.main:app --reload
 ```
@@ -156,6 +161,8 @@ OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
 ```
 
 Using `http://127.0.0.1:11434/v1` from inside the backend container will not reach the host Ollama process.
+
+This networking note is Docker-specific; it does not change the Python runtime requirement, which remains Python `3.11.x` for local backend runs.
 
 #### `QDRANT_URL`
 
